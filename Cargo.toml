@@ -1,0 +1,16 @@
+[package]
+name = "promptforge"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/kinghuynh/promptforge.git"
+authors = ["Kingston Huynh <139024820+kinghuynh@users.noreply.github.com>"]
+description = "A Rust crate for building and formatting prompts for AI agents."
+keywords = ["llm", "AI", "prompts", "langchain", "agents"]
+categories = [
+    "artificial-intelligence",
+    "development-tools",
+    "text-processing",
+    "templating",
+]
+[dependencies]
