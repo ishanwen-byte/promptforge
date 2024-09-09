@@ -27,6 +27,30 @@ pub enum TemplateFormat {
     Mustache,
 }
 
+impl TryFrom<&str> for TemplateFormat {
+    type Error = TemplateError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        if !is_valid_template(s) {
+            return Err(TemplateError::MalformedTemplate(
+                "Malformed template".to_string(),
+            ));
+        }
+
+        if is_fmtstring(s) {
+            Ok(TemplateFormat::FmtString)
+        } else if is_mustache(s) {
+            Ok(TemplateFormat::Mustache)
+        } else if is_plain_text(s) {
+            Ok(TemplateFormat::PlainText)
+        } else {
+            Err(TemplateError::UnsupportedFormat(
+                "Unsupported template format".to_string(),
+            ))
+        }
+    }
+}
+
 pub fn is_plain_text(s: &str) -> bool {
     has_no_braces(s)
 }
@@ -161,5 +185,39 @@ mod tests {
             detect_template("{var words}").unwrap_err(),
             TemplateError::UnsupportedFormat("{var words}".to_string())
         );
+    }
+
+    #[test]
+    fn test_try_from_template_format() {
+        assert_eq!(
+            TemplateFormat::try_from("{name}").unwrap(),
+            TemplateFormat::FmtString
+        );
+
+        assert_eq!(
+            TemplateFormat::try_from("{{name}}").unwrap(),
+            TemplateFormat::Mustache
+        );
+
+        assert_eq!(
+            TemplateFormat::try_from("Hello, world!").unwrap(),
+            TemplateFormat::PlainText
+        );
+
+        let result = TemplateFormat::try_from("{name {{other}}");
+        match result {
+            Err(TemplateError::MalformedTemplate(msg)) => {
+                assert_eq!(msg, "Malformed template".to_string());
+            }
+            _ => panic!("Expected MalformedTemplate error"),
+        }
+
+        let result = TemplateFormat::try_from("{ name age }");
+        match result {
+            Err(TemplateError::UnsupportedFormat(msg)) => {
+                assert_eq!(msg, "Unsupported template format".to_string());
+            }
+            e => panic!("Expected UnsupportedFormat error. Got error: {:?}", e),
+        }
     }
 }
