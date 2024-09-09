@@ -14,6 +14,10 @@
 
 - **Extensibility**: Developers can easily extend PromptForge to support custom templating engines or additional placeholder validation strategies.
 
+## Acknowledgments
+
+PromptForge draws inspiration from the excellent work done in the [LangChain prompts library](https://github.com/langchain-ai/langchain/tree/master/libs/core/langchain_core/prompts). LangChain’s approach to managing prompts and integrating with LLMs served as a valuable reference in the design and development of PromptForge, especially in terms of structuring reusable, dynamic prompts for AI applications.
+
 ## Goals
 
 PromptForge is aimed at simplifying the process of working with AI-driven systems, especially when it comes to generating and managing prompts. Here are some of the core goals:
