@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use handlebars::Handlebars;
+
 use crate::placeholder::extract_variables;
 use crate::template::Template;
 use crate::template_format::{detect_template, validate_template, TemplateError, TemplateFormat};
@@ -40,10 +44,7 @@ impl PromptTemplate {
         Ok(())
     }
 
-    fn format_fmtstring(
-        &self,
-        variables: &std::collections::HashMap<&str, &str>,
-    ) -> Result<String, TemplateError> {
+    fn format_fmtstring(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
         let mut result = self.template.clone();
 
         for var in &self.input_variables {
@@ -58,11 +59,16 @@ impl PromptTemplate {
         Ok(result)
     }
 
-    fn format_mustache(
-        &self,
-        variables: &std::collections::HashMap<&str, &str>,
-    ) -> Result<String, TemplateError> {
-        Ok("".to_string())
+    fn format_mustache(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
+        let mut handlebars = Handlebars::new();
+
+        handlebars
+            .register_template_string("mustache_template", &self.template)
+            .map_err(|err| TemplateError::MalformedTemplate(err.to_string()))?;
+
+        handlebars
+            .render("mustache_template", variables)
+            .map_err(|err| TemplateError::MissingVariable(err.to_string()))
     }
 }
 
@@ -167,5 +173,37 @@ mod tests {
         let variables = prompt_vars!(name = "Alice");
         let result = tmpl.format(variables).unwrap_err();
         assert!(matches!(result, TemplateError::MissingVariable(_)));
+    }
+
+    #[test]
+    fn test_format_mustache_success() {
+        let tmpl = PromptTemplate::new("Hello, {{name}}!").unwrap();
+        let variables = prompt_vars!(name = "John");
+        let result = tmpl.format(variables).unwrap();
+        assert_eq!(result, "Hello, John!");
+
+        let variables = prompt_vars!(name = "John", extra = "data");
+        let result = tmpl.format(variables).unwrap();
+        assert_eq!(result, "Hello, John!");
+
+        let tmpl_multiple_vars =
+            PromptTemplate::new("Hello, {{name}}! You are {{adjective}}.").unwrap();
+        let variables = prompt_vars!(name = "John", adjective = "awesome");
+        let result = tmpl_multiple_vars.format(variables).unwrap();
+        assert_eq!(result, "Hello, John! You are awesome.");
+
+        let tmpl_multiple_instances =
+            PromptTemplate::new("{{greeting}}, {{name}}! {{greeting}}, again!").unwrap();
+        let variables = prompt_vars!(greeting = "Hello", name = "John");
+        let result = tmpl_multiple_instances.format(variables).unwrap();
+        assert_eq!(result, "Hello, John! Hello, again!");
+    }
+
+    #[test]
+    fn test_format_mustache_error() {
+        let tmpl_missing_var = PromptTemplate::new("Hello, {{name}}!").unwrap();
+        let variables = prompt_vars!(adjective = "cool");
+        let err = tmpl_missing_var.format(variables).unwrap_err();
+        assert!(matches!(err, TemplateError::MissingVariable(_)));
     }
 }
