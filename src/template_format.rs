@@ -20,7 +20,7 @@ impl std::fmt::Display for TemplateError {
 
 impl std::error::Error for TemplateError {}
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TemplateFormat {
     PlainText,
     FmtString,
@@ -72,11 +72,15 @@ pub fn is_valid_template(s: &str) -> bool {
         && (has_only_double_braces(s) || has_only_single_braces(s))
 }
 
-pub fn detect_template(s: &str) -> Result<TemplateFormat, TemplateError> {
+pub fn validate_template(s: &str) -> Result<(), TemplateError> {
     if !is_valid_template(s) {
         return Err(TemplateError::MalformedTemplate(s.to_string()));
     }
 
+    Ok(())
+}
+
+pub fn detect_template(s: &str) -> Result<TemplateFormat, TemplateError> {
     if is_plain_text(s) {
         Ok(TemplateFormat::PlainText)
     } else if is_mustache(s) {
@@ -170,20 +174,30 @@ mod tests {
         );
 
         assert_eq!(
-            detect_template("{{var}").unwrap_err(),
+            detect_template("{var words}").unwrap_err(),
+            TemplateError::UnsupportedFormat("{var words}".to_string())
+        );
+    }
+
+    #[test]
+    fn test_validate_template() {
+        assert!(validate_template("{var}").is_ok());
+        assert!(validate_template("Here is a {var}").is_ok());
+        assert!(validate_template("{{var}}").is_ok());
+        assert!(validate_template("This is a {{valid}} Mustache template").is_ok());
+        assert!(validate_template("No placeholders here").is_ok());
+
+        assert_eq!(
+            validate_template("{{var}").unwrap_err(),
             TemplateError::MalformedTemplate("{{var}".to_string())
         );
         assert_eq!(
-            detect_template("{var}}").unwrap_err(),
+            validate_template("{var}}").unwrap_err(),
             TemplateError::MalformedTemplate("{var}}".to_string())
         );
         assert_eq!(
-            detect_template("{var} words {{another}}").unwrap_err(),
+            validate_template("{var} words {{another}}").unwrap_err(),
             TemplateError::MalformedTemplate("{var} words {{another}}".to_string())
-        );
-        assert_eq!(
-            detect_template("{var words}").unwrap_err(),
-            TemplateError::UnsupportedFormat("{var words}".to_string())
         );
     }
 
