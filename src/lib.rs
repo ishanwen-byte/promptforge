@@ -12,4 +12,5 @@ pub mod prompt_vars;
 pub mod template;
 pub use template::Template;
 
-// pub use template_format::{detect_format, extract_variables, TemplateFormat};
+pub mod prompt_template;
+pub use prompt_template::PromptTemplate;
