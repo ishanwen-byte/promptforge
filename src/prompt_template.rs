@@ -27,6 +27,43 @@ impl PromptTemplate {
     pub fn from_template(tmpl: &str) -> Result<Self, TemplateError> {
         Self::new(tmpl)
     }
+
+    fn validate_variables(
+        &self,
+        variables: &std::collections::HashMap<&str, &str>,
+    ) -> Result<(), TemplateError> {
+        for var in &self.input_variables {
+            if !variables.contains_key(var.as_str()) {
+                return Err(TemplateError::MissingVariable(var.clone()));
+            }
+        }
+        Ok(())
+    }
+
+    fn format_fmtstring(
+        &self,
+        variables: &std::collections::HashMap<&str, &str>,
+    ) -> Result<String, TemplateError> {
+        let mut result = self.template.clone();
+
+        for var in &self.input_variables {
+            if let Some(value) = variables.get(var.as_str()) {
+                let placeholder = format!("{{{}}}", var);
+                result = result.replace(&placeholder, value);
+            } else {
+                return Err(TemplateError::MissingVariable(var.clone()));
+            }
+        }
+
+        Ok(result)
+    }
+
+    fn format_mustache(
+        &self,
+        variables: &std::collections::HashMap<&str, &str>,
+    ) -> Result<String, TemplateError> {
+        Ok("".to_string())
+    }
 }
 
 impl Template for PromptTemplate {
@@ -34,9 +71,13 @@ impl Template for PromptTemplate {
         &self,
         variables: std::collections::HashMap<&str, &str>,
     ) -> Result<String, TemplateError> {
-        Err(TemplateError::UnsupportedFormat(
-            "Unsupported format".to_string(),
-        ))
+        self.validate_variables(&variables)?;
+
+        match self.template_format {
+            TemplateFormat::FmtString => self.format_fmtstring(&variables),
+            TemplateFormat::Mustache => self.format_mustache(&variables),
+            TemplateFormat::PlainText => Ok(self.template.clone()),
+        }
     }
 
     fn template_format(&self) -> TemplateFormat {
@@ -51,6 +92,7 @@ impl Template for PromptTemplate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::prompt_vars;
 
     #[test]
     fn test_prompt_template_new_success() {
@@ -92,5 +134,38 @@ mod tests {
         let malformed_mustache = "Tell me a {{adjective joke about {{content}}.";
         let tmpl_err = PromptTemplate::new(malformed_mustache).unwrap_err();
         assert!(matches!(tmpl_err, TemplateError::MalformedTemplate(_)));
+    }
+
+    #[test]
+    fn test_fmtstring_formatting() {
+        let tmpl = PromptTemplate::new("Hello, {name}!").unwrap();
+        let variables = prompt_vars!(name = "John");
+        let formatted = tmpl.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, John!");
+
+        let tmpl = PromptTemplate::new("Hi {name}, you are {age} years old!").unwrap();
+        let variables = prompt_vars!(name = "Alice", age = "30");
+        let formatted = tmpl.format(variables).unwrap();
+        assert_eq!(formatted, "Hi Alice, you are 30 years old!");
+
+        let tmpl = PromptTemplate::new("Hello World!").unwrap();
+        let variables = prompt_vars!();
+        let formatted = tmpl.format(variables).unwrap();
+        assert_eq!(formatted, "Hello World!");
+
+        let tmpl = PromptTemplate::new("Goodbye, {name}!").unwrap();
+        let variables = prompt_vars!(name = "John", extra = "data");
+        let formatted = tmpl.format(variables).unwrap();
+        assert_eq!(formatted, "Goodbye, John!");
+
+        let tmpl = PromptTemplate::new("Goodbye, {name}!").unwrap();
+        let variables = prompt_vars!(wrong_name = "John");
+        let result = tmpl.format(variables);
+        assert!(result.is_err());
+
+        let tmpl = PromptTemplate::new("Hi {name}, you are {age} years old!").unwrap();
+        let variables = prompt_vars!(name = "Alice");
+        let result = tmpl.format(variables).unwrap_err();
+        assert!(matches!(result, TemplateError::MissingVariable(_)));
     }
 }
