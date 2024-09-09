@@ -14,3 +14,4 @@ categories = [
 ]
 
 [dependencies]
+regex = "1.10.6"
