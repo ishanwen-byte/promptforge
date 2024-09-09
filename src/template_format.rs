@@ -7,6 +7,7 @@ use crate::braces::{
 pub enum TemplateError {
     MalformedTemplate(String),
     UnsupportedFormat(String),
+    MissingVariable(String),
 }
 
 impl std::fmt::Display for TemplateError {
@@ -14,6 +15,7 @@ impl std::fmt::Display for TemplateError {
         match self {
             TemplateError::MalformedTemplate(msg) => write!(f, "Malformed template: {}", msg),
             TemplateError::UnsupportedFormat(msg) => write!(f, "Unsupported format: {}", msg),
+            TemplateError::MissingVariable(msg) => write!(f, "Missing variable: {}", msg),
         }
     }
 }
