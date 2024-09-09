@@ -8,8 +8,8 @@ pub fn is_valid_identifier(s: &str) -> bool {
     re.is_match(s)
 }
 
-pub fn extract_fmtstring_variables(template: &str) -> Vec<String> {
-    let re = Regex::new(r"\{([^}]+)\}").unwrap();
+pub fn extract_variables(template: &str) -> Vec<String> {
+    let re = Regex::new(r"\{{1,2}([^}]+)\}{1,2}").unwrap();
     let mut unique_vars = HashSet::new();
     let mut result = Vec::new();
 
@@ -50,7 +50,7 @@ mod tests {
     }
 
     fn check_variables(template: &str, expected_vars: Vec<&str>) {
-        let extracted_vars = extract_fmtstring_variables(template);
+        let extracted_vars = extract_variables(template);
         assert_eq!(extracted_vars, expected_vars);
     }
 
@@ -59,15 +59,20 @@ mod tests {
         check_variables("{var}", vec!["var"]);
         check_variables("Hello {name}", vec!["name"]);
         check_variables("{var1} and { var2 }", vec!["var1", "var2"]);
-
         check_variables("{var} and {var}", vec!["var"]);
+
+        check_variables("{{ var }}", vec!["var"]);
+        check_variables("Hello {{name}}", vec!["name"]);
+        check_variables("{{var1}} and {{ var2 }}", vec!["var1", "var2"]);
+        check_variables("{{var}} and {{ var }}", vec!["var"]);
 
         check_variables("No variables here", vec![]);
         check_variables("{}", vec![]);
+        check_variables("{{}}", vec![]);
 
         check_variables("{123invalid}", vec![]);
         check_variables("{var with spaces}", vec![]);
-        check_variables("{var!invalid}", vec![]);
+        check_variables("{{var!invalid}}", vec![]);
         check_variables("{!@#}", vec![]);
 
         check_variables("{var_with_underscores}", vec!["var_with_underscores"]);
