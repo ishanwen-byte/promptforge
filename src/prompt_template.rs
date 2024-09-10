@@ -206,4 +206,31 @@ mod tests {
         let err = tmpl_missing_var.format(variables).unwrap_err();
         assert!(matches!(err, TemplateError::MissingVariable(_)));
     }
+
+    #[test]
+    fn test_format_plaintext() {
+        let tmpl = PromptTemplate::new("Hello, world!").unwrap();
+        let variables = prompt_vars!();
+        let result = tmpl.format(variables).unwrap();
+        assert_eq!(result, "Hello, world!");
+
+        let tmpl = PromptTemplate::new("Welcome to the Rust world!").unwrap();
+        let variables = prompt_vars!(name = "John", adjective = "awesome");
+        let result = tmpl.format(variables).unwrap();
+        assert_eq!(result, "Welcome to the Rust world!");
+
+        let tmpl_no_placeholders = PromptTemplate::new("No placeholders here").unwrap();
+        let variables = prompt_vars!(name = "ignored");
+        let result = tmpl_no_placeholders.format(variables).unwrap();
+        assert_eq!(result, "No placeholders here");
+
+        let tmpl_extra_spaces = PromptTemplate::new("  Just some text   ").unwrap();
+        let variables = prompt_vars!();
+        let result = tmpl_extra_spaces.format(variables).unwrap();
+        assert_eq!(result, "  Just some text   ");
+
+        let tmpl_with_newlines = PromptTemplate::new("Text with\nmultiple lines\n").unwrap();
+        let result = tmpl_with_newlines.format(prompt_vars!()).unwrap();
+        assert_eq!(result, "Text with\nmultiple lines\n");
+    }
 }
