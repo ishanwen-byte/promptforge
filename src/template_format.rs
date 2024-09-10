@@ -1,13 +1,22 @@
+use handlebars::RenderError;
+
 use crate::braces::{
     count_left_braces, count_right_braces, has_multiple_words_between_braces, has_no_braces,
     has_only_double_braces, has_only_single_braces,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 pub enum TemplateError {
     MalformedTemplate(String),
     UnsupportedFormat(String),
     MissingVariable(String),
+    RenderError(RenderError),
+}
+
+impl From<RenderError> for TemplateError {
+    fn from(err: RenderError) -> Self {
+        TemplateError::RenderError(err)
+    }
 }
 
 impl std::fmt::Display for TemplateError {
@@ -16,11 +25,24 @@ impl std::fmt::Display for TemplateError {
             TemplateError::MalformedTemplate(msg) => write!(f, "Malformed template: {}", msg),
             TemplateError::UnsupportedFormat(msg) => write!(f, "Unsupported format: {}", msg),
             TemplateError::MissingVariable(msg) => write!(f, "Missing variable: {}", msg),
+            TemplateError::RenderError(err) => write!(f, "Render error: {}", err),
         }
     }
 }
 
 impl std::error::Error for TemplateError {}
+
+impl TemplateError {
+    pub fn matches(&self, other: &TemplateError) -> bool {
+        match (self, other) {
+            (TemplateError::MissingVariable(a), TemplateError::MissingVariable(b)) => a == b,
+            (TemplateError::MalformedTemplate(a), TemplateError::MalformedTemplate(b)) => a == b,
+            (TemplateError::UnsupportedFormat(a), TemplateError::UnsupportedFormat(b)) => a == b,
+            (TemplateError::RenderError(_), TemplateError::RenderError(_)) => true,
+            _ => false,
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TemplateFormat {
@@ -175,10 +197,9 @@ mod tests {
             TemplateFormat::Mustache
         );
 
-        assert_eq!(
-            detect_template("{var words}").unwrap_err(),
-            TemplateError::UnsupportedFormat("{var words}".to_string())
-        );
+        assert!(detect_template("{var words}")
+            .unwrap_err()
+            .matches(&TemplateError::UnsupportedFormat("{var words}".to_string())));
     }
 
     #[test]
@@ -189,18 +210,19 @@ mod tests {
         assert!(validate_template("This is a {{valid}} Mustache template").is_ok());
         assert!(validate_template("No placeholders here").is_ok());
 
-        assert_eq!(
-            validate_template("{{var}").unwrap_err(),
-            TemplateError::MalformedTemplate("{{var}".to_string())
-        );
-        assert_eq!(
-            validate_template("{var}}").unwrap_err(),
-            TemplateError::MalformedTemplate("{var}}".to_string())
-        );
-        assert_eq!(
-            validate_template("{var} words {{another}}").unwrap_err(),
-            TemplateError::MalformedTemplate("{var} words {{another}}".to_string())
-        );
+        assert!(validate_template("{{var}")
+            .unwrap_err()
+            .matches(&TemplateError::MalformedTemplate("{{var}".to_string())));
+
+        assert!(validate_template("{var}}")
+            .unwrap_err()
+            .matches(&TemplateError::MalformedTemplate("{var}}".to_string())));
+
+        assert!(validate_template("{var} words {{another}}")
+            .unwrap_err()
+            .matches(&TemplateError::MalformedTemplate(
+                "{var} words {{another}}".to_string()
+            )));
     }
 
     #[test]
