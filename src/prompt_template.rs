@@ -36,6 +36,12 @@ impl PromptTemplate {
         &self,
         variables: &std::collections::HashMap<&str, &str>,
     ) -> Result<(), TemplateError> {
+        if variables.len() < self.input_variables.len() {
+            return Err(TemplateError::MissingVariable(
+                "Missing variables".to_string(),
+            ));
+        }
+
         for var in &self.input_variables {
             if !variables.contains_key(var.as_str()) {
                 return Err(TemplateError::MissingVariable(var.clone()));
