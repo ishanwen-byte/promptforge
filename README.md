@@ -43,6 +43,54 @@ PromptForge will soon be available on [crates.io](https://crates.io), making ins
 promptforge = "0.1"
 ```
 
+## Quickstart Examples
+
+### Creating a FmtString Template
+
+```rust
+use promptforge::{PromptTemplate, TemplateError, prompt_vars};
+
+fn main() -> Result<(), TemplateError> {
+    let tmpl = PromptTemplate::new("Hello, {name}! Your order number is {order_id}.")?;
+    let variables = prompt_vars!(name = "Alice", order_id = "12345");
+    let result = tmpl.format(variables)?;
+    
+    println!("{}", result);  // Outputs: Hello, Alice! Your order number is 12345.
+    Ok(())
+}
+```
+
+### Using a Mustache Template
+
+```rust
+use promptforge::{PromptTemplate, TemplateError, prompt_vars};
+
+fn main() -> Result<(), TemplateError> {
+    let tmpl = PromptTemplate::new("Hello, {{name}}! Your favorite color is {{color}}.")?;
+    let variables = prompt_vars!(name = "Bob", color = "blue");
+    let result = tmpl.format(variables)?;
+    
+    println!("{}", result);  // Outputs: Hello, Bob! Your favorite color is blue.
+    Ok(())
+}
+```
+
+### Handling Missing Variables
+
+```rust
+use promptforge::{PromptTemplate, TemplateError, prompt_vars};
+
+fn main() -> Result<(), TemplateError> {
+    let tmpl = PromptTemplate::new("Hi, {name}! Please confirm your email: {email}.")?;
+    let variables = prompt_vars!(name = "Charlie");
+    let result = tmpl.format(variables);
+    
+    assert!(result.is_err());
+    println!("Error: {:?}", result.unwrap_err());  // Outputs: Error: MissingVariable("email")
+    Ok(())
+}
+```
+
 ## Contribution
 
 Contributions are welcome! If you're interested in contributing to PromptForge, please take a moment to review the following guidelines:
