@@ -1,3 +1,179 @@
+//! # PromptTemplate
+//!
+//! `PromptTemplate` is a struct designed to simplify the creation and formatting of dynamic, reusable prompts for AI-driven applications. It supports multiple template formats, including `FmtString` (similar to Python's f-strings) and `Mustache` (a logic-less templating system).
+//!
+//! This struct provides an easy way to define templates with placeholders for variables and then substitute values for those placeholders at runtime.
+//!
+//! ## Example Usage
+//!
+//! ### FmtString Template
+//!
+//! ```rust
+//! use promptforge::{PromptTemplate, TemplateError, prompt_vars};
+//!
+//! fn main() -> Result<(), TemplateError> {
+//!     let tmpl = PromptTemplate::new("Hello, {name}! Your order number is {order_id}.")?;
+//!     let variables = prompt_vars!(name = "Alice", order_id = "12345");
+//!     let result = tmpl.format(variables)?;
+//!     
+//!     println!("{}", result);  // Outputs: Hello, Alice! Your order number is 12345.
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ### Mustache Template
+//!
+//! ```rust
+//! use promptforge::{PromptTemplate, TemplateError, prompt_vars};
+//!
+//! fn main() -> Result<(), TemplateError> {
+//!     let tmpl = PromptTemplate::new("Hello, {{name}}! Your favorite color is {{color}}.")?;
+//!     let variables = prompt_vars!(name = "Bob", color = "blue");
+//!     let result = tmpl.format(variables)?;
+//!     
+//!     println!("{}", result);  // Outputs: Hello, Bob! Your favorite color is blue.
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ### Handling Missing Variables
+//!
+//! ```rust
+//! use promptforge::{PromptTemplate, TemplateError, prompt_vars};
+//!
+//! fn main() -> Result<(), TemplateError> {
+//!     let tmpl = PromptTemplate::new("Hi, {name}! Please confirm your email: {email}.")?;
+//!     let variables = prompt_vars!(name = "Charlie");
+//!     let result = tmpl.format(variables);
+//!     
+//!     assert!(result.is_err());
+//!     println!("Error: {:?}", result.unwrap_err());  // Outputs: Error: MissingVariable("email")
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Fields
+//!
+//! - `template`: The raw string template that contains placeholders for variables. This template can be either in `FmtString` or `Mustache` format.
+//! - `template_format`: Specifies whether the template is in `FmtString`, `Mustache`, or `PlainText` format. This is automatically detected based on the template passed in.
+//! - `input_variables`: A `Vec<String>` that lists the variable names expected to be provided when formatting the template. These are automatically extracted from the template.
+//! - `handlebars`: Optional `Handlebars<'static>` instance. This is only initialized when using Mustache templates. It is used for rendering Mustache-style templates.
+//!
+//! ## Methods
+//!
+//! ### `new`
+//!
+//! ```rust
+//! pub fn new(tmpl: &str) -> Result<Self, TemplateError>
+//! ```
+//!
+//! Creates a new `PromptTemplate` instance from a template string. The function validates the template, detects the format (FmtString or Mustache), and extracts the expected variables.
+//!
+//! - **Arguments**:
+//!   - `tmpl`: The template string, which contains placeholders (e.g., `"{name}"` or `"{{name}}"`).
+//! - **Returns**:
+//!   - `Result<Self, TemplateError>`: A `PromptTemplate` instance or a `TemplateError` if the template is malformed or contains unsupported formats.
+//!
+//! ### `from_template`
+//!
+//! ```rust
+//! pub fn from_template(tmpl: &str) -> Result<Self, TemplateError>
+//! ```
+//!
+//! Alias for `new`. This method is provided to keep consistency with the API, mimicking similar libraries like LangChain.
+//!
+//! - **Arguments**:
+//!   - `tmpl`: The template string.
+//! - **Returns**:
+//!   - Same as `new`.
+//!
+//! ### `validate_variables`
+//!
+//! ```rust
+//! fn validate_variables(&self, variables: &std::collections::HashMap<&str, &str>) -> Result<(), TemplateError>
+//! ```
+//!
+//! Ensures that all required variables for the template are provided in the `variables` map. If a required variable is missing, it returns a `TemplateError::MissingVariable`.
+//!
+//! - **Arguments**:
+//!   - `variables`: A `HashMap` containing the variable names and values to be substituted in the template.
+//! - **Returns**:
+//!   - `Ok(())` if all variables are valid, otherwise returns a `TemplateError`.
+//!
+//! ### `format`
+//!
+//! ```rust
+//! pub fn format(&self, variables: std::collections::HashMap<&str, &str>) -> Result<String, TemplateError>
+//! ```
+//!
+//! Formats the template by substituting the provided variables into the placeholders in the template. The function supports both `FmtString` and `Mustache` templates, performing the appropriate rendering based on the detected format.
+//!
+//! - **Arguments**:
+//!   - `variables`: A `HashMap` containing the variable names and values to be substituted in the template.
+//! - **Returns**:
+//!   - `Result<String, TemplateError>`: The formatted string or an error if any variables are missing or the template is malformed.
+//!
+//! ### `template_format`
+//!
+//! ```rust
+//! pub fn template_format(&self) -> TemplateFormat
+//! ```
+//!
+//! Returns the format of the template, which can be `FmtString`, `Mustache`, or `PlainText`.
+//!
+//! - **Returns**:
+//!   - The `TemplateFormat` for the template.
+//!
+//! ### `input_variables`
+//!
+//! ```rust
+//! pub fn input_variables(&self) -> Vec<String>
+//! ```
+//!
+//! Returns a list of the variable names expected by the template.
+//!
+//! - **Returns**:
+//!   - A `Vec<String>` of variable names.
+//!
+//! ### Internal Helper Methods
+//!
+//! #### `initialize_handlebars`
+//!
+//! ```rust
+//! fn initialize_handlebars(tmpl: &str) -> Result<Handlebars<'static>, TemplateError>
+//! ```
+//!
+//! Initializes the `Handlebars` instance and registers the Mustache template. This is used internally when a Mustache template is detected.
+//!
+//! - **Arguments**:
+//!   - `tmpl`: The template string.
+//! - **Returns**:
+//!   - A `Handlebars` instance or a `TemplateError` if the template registration fails.
+//!
+//! ## Error Handling
+//!
+//! `PromptTemplate` provides comprehensive error handling through the `TemplateError` enum. It ensures that:
+//!
+//! - Templates are validated upon creation (invalid placeholders, mixed formats, etc.).
+//! - Missing variables are detected and reported with detailed error messages.
+//! - Unsupported template formats are caught early.
+//!
+//! ## Design Decisions
+//!
+//! - **Thread Safety**: `PromptTemplate` can be used in asynchronous contexts without issues, as it doesn’t require modification after creation. For multi-threaded environments, you can safely share instances of `PromptTemplate` across threads or tasks by wrapping it in an `Arc`. No additional synchronization (like `Mutex` or `RwLock`) is necessary unless you plan to modify the instance after its creation.
+//!
+//! - **Handlebars**: The `Handlebars` instance is only created when a Mustache template is detected. This avoids the overhead of initializing it for templates that don’t require Mustache-style rendering.
+//!
+//! ## Planned Enhancements
+//!
+//! - **Asynchronous Support**: Adding asynchronous methods to align with async Rust patterns.
+//! - **Advanced Templating**: Support for conditionals and loops in Mustache templates.
+//! - **Customizable Format**: Allow users to define and plug in custom template formats.
+//!
+//! ## Conclusion
+//!
+//! `PromptTemplate` is a powerful and flexible tool for managing dynamic prompts in AI-driven systems. By supporting both FmtString and Mustache formats, it provides developers with the ability to create reusable, dynamic prompts that can be adapted to a wide range of use cases.
+
 use std::collections::HashMap;
 
 use handlebars::Handlebars;
