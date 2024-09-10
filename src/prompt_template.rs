@@ -11,20 +11,30 @@ pub struct PromptTemplate {
     template: String,
     template_format: TemplateFormat,
     input_variables: Vec<String>,
+    handlebars: Option<Handlebars<'static>>,
 }
 
 impl PromptTemplate {
+    pub const MUSTACHE_TEMPLATE: &'static str = "mustache_template";
+
     pub fn new(tmpl: &str) -> Result<Self, TemplateError> {
         validate_template(tmpl)?;
 
         let template_format = detect_template(tmpl)?;
         let input_variables = extract_variables(tmpl);
-        let template = tmpl.to_string();
+
+        let handlebars = if template_format == TemplateFormat::Mustache {
+            let handle = Self::initialize_handlebars(tmpl)?;
+            Some(handle)
+        } else {
+            None
+        };
 
         Ok(PromptTemplate {
-            template,
+            template: tmpl.to_string(),
             template_format,
             input_variables,
+            handlebars,
         })
     }
 
@@ -32,16 +42,20 @@ impl PromptTemplate {
         Self::new(tmpl)
     }
 
+    fn initialize_handlebars(tmpl: &str) -> Result<Handlebars<'static>, TemplateError> {
+        let mut handlebars = Handlebars::new();
+        handlebars
+            .register_template_string(Self::MUSTACHE_TEMPLATE, tmpl)
+            .map_err(|e| {
+                TemplateError::MalformedTemplate(format!("Failed to register template: {}", e))
+            })?;
+        Ok(handlebars)
+    }
+
     fn validate_variables(
         &self,
         variables: &std::collections::HashMap<&str, &str>,
     ) -> Result<(), TemplateError> {
-        if variables.len() < self.input_variables.len() {
-            return Err(TemplateError::MissingVariable(
-                "Missing variables".to_string(),
-            ));
-        }
-
         for var in &self.input_variables {
             if !variables.contains_key(var.as_str()) {
                 return Err(TemplateError::MissingVariable(var.clone()));
@@ -66,15 +80,14 @@ impl PromptTemplate {
     }
 
     fn format_mustache(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
-        let mut handlebars = Handlebars::new();
-
-        handlebars
-            .register_template_string("mustache_template", &self.template)
-            .map_err(|err| TemplateError::MalformedTemplate(err.to_string()))?;
-
-        handlebars
-            .render("mustache_template", variables)
-            .map_err(|err| TemplateError::MissingVariable(err.to_string()))
+        match &self.handlebars {
+            None => Err(TemplateError::UnsupportedFormat(
+                "Handlebars not initialized".to_string(),
+            )),
+            Some(handlebars) => handlebars
+                .render(Self::MUSTACHE_TEMPLATE, variables)
+                .map_err(|err| TemplateError::MissingVariable(err.to_string())),
+        }
     }
 }
 
