@@ -68,8 +68,9 @@ impl PromptTemplate {
         let mut result = self.template.clone();
 
         for var in &self.input_variables {
+            let placeholder = format!("{{{}}}", var);
+
             if let Some(value) = variables.get(var.as_str()) {
-                let placeholder = format!("{{{}}}", var);
                 result = result.replace(&placeholder, value);
             } else {
                 return Err(TemplateError::MissingVariable(var.clone()));
@@ -86,7 +87,7 @@ impl PromptTemplate {
             )),
             Some(handlebars) => handlebars
                 .render(Self::MUSTACHE_TEMPLATE, variables)
-                .map_err(|err| TemplateError::MissingVariable(err.to_string())),
+                .map_err(TemplateError::RenderError),
         }
     }
 }
