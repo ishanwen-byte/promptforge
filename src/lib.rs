@@ -14,3 +14,9 @@ pub use template::Template;
 
 pub mod prompt_template;
 pub use prompt_template::PromptTemplate;
+
+pub mod chat_prompt_template;
+pub use chat_prompt_template::ChatPromptTemplate;
+
+pub mod message_like;
+pub use message_like::MessageLike;
