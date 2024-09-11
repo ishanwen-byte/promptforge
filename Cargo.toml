@@ -15,4 +15,5 @@ categories = [
 
 [dependencies]
 handlebars = "6.1.0"
+messageforge = "0.1.0"
 regex = "1.10.6"
