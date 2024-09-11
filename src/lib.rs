@@ -6,6 +6,8 @@ pub use is_even::IsEven;
 pub mod placeholder;
 
 pub mod template_format;
+pub use template_format::TemplateError;
+pub use template_format::TemplateFormat;
 
 pub mod prompt_vars;
 
