@@ -10,6 +10,7 @@
 //!
 //! ```rust
 //! use promptforge::{PromptTemplate, TemplateError, prompt_vars};
+//! use promptforge::Template;
 //!
 //! fn main() -> Result<(), TemplateError> {
 //!     let tmpl = PromptTemplate::new("Hello, {name}! Your order number is {order_id}.")?;
@@ -24,6 +25,7 @@
 //! ### Mustache Template
 //!
 //! ```rust
+//! use promptforge::Template;
 //! use promptforge::{PromptTemplate, TemplateError, prompt_vars};
 //!
 //! fn main() -> Result<(), TemplateError> {
@@ -39,6 +41,7 @@
 //! ### Handling Missing Variables
 //!
 //! ```rust
+//! use promptforge::Template;
 //! use promptforge::{PromptTemplate, TemplateError, prompt_vars};
 //!
 //! fn main() -> Result<(), TemplateError> {
@@ -64,7 +67,7 @@
 //! ### `new`
 //!
 //! ```rust
-//! pub fn new(tmpl: &str) -> Result<Self, TemplateError>
+//! // pub fn new(tmpl: &str) -> Result<Self, TemplateError>
 //! ```
 //!
 //! Creates a new `PromptTemplate` instance from a template string. The function validates the template, detects the format (FmtString or Mustache), and extracts the expected variables.
@@ -77,7 +80,7 @@
 //! ### `from_template`
 //!
 //! ```rust
-//! pub fn from_template(tmpl: &str) -> Result<Self, TemplateError>
+//! // pub fn from_template(tmpl: &str) -> Result<Self, TemplateError>
 //! ```
 //!
 //! Alias for `new`. This method is provided to keep consistency with the API, mimicking similar libraries like LangChain.
@@ -90,7 +93,7 @@
 //! ### `validate_variables`
 //!
 //! ```rust
-//! fn validate_variables(&self, variables: &std::collections::HashMap<&str, &str>) -> Result<(), TemplateError>
+//! // fn validate_variables(&self, variables: &std::collections::HashMap<&str, &str>) -> Result<(), TemplateError>
 //! ```
 //!
 //! Ensures that all required variables for the template are provided in the `variables` map. If a required variable is missing, it returns a `TemplateError::MissingVariable`.
@@ -103,7 +106,7 @@
 //! ### `format`
 //!
 //! ```rust
-//! pub fn format(&self, variables: std::collections::HashMap<&str, &str>) -> Result<String, TemplateError>
+//! // pub fn format(&self, variables: std::collections::HashMap<&str, &str>) -> Result<String, TemplateError>
 //! ```
 //!
 //! Formats the template by substituting the provided variables into the placeholders in the template. The function supports both `FmtString` and `Mustache` templates, performing the appropriate rendering based on the detected format.
@@ -116,7 +119,7 @@
 //! ### `template_format`
 //!
 //! ```rust
-//! pub fn template_format(&self) -> TemplateFormat
+//! // pub fn template_format(&self) -> TemplateFormat
 //! ```
 //!
 //! Returns the format of the template, which can be `FmtString`, `Mustache`, or `PlainText`.
@@ -127,7 +130,7 @@
 //! ### `input_variables`
 //!
 //! ```rust
-//! pub fn input_variables(&self) -> Vec<String>
+//! // pub fn input_variables(&self) -> Vec<String>
 //! ```
 //!
 //! Returns a list of the variable names expected by the template.
@@ -140,7 +143,7 @@
 //! #### `initialize_handlebars`
 //!
 //! ```rust
-//! fn initialize_handlebars(tmpl: &str) -> Result<Handlebars<'static>, TemplateError>
+//! // fn initialize_handlebars(tmpl: &str) -> Result<Handlebars<'static>, TemplateError>
 //! ```
 //!
 //! Initializes the `Handlebars` instance and registers the Mustache template. This is used internally when a Mustache template is detected.
@@ -280,6 +283,10 @@ impl Template for PromptTemplate {
             TemplateFormat::Mustache => self.format_mustache(&variables),
             TemplateFormat::PlainText => Ok(self.template.clone()),
         }
+    }
+
+    fn template(&self) -> &str {
+        &self.template
     }
 
     fn template_format(&self) -> TemplateFormat {
