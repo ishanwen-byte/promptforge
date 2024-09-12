@@ -3,7 +3,7 @@ macro_rules! chat_templates {
     ($($role:ident = $tmpl:expr),+ $(,)?) => {
         &[
             $(
-                ($role.to_string(), $tmpl.to_string()),
+                ($role, $tmpl),
             )+
         ]
     };
@@ -19,7 +19,7 @@ mod tests {
         let templates = chat_templates!(System = "You are a helpful AI bot.");
 
         assert_eq!(templates.len(), 1);
-        assert_eq!(templates[0].0, "system");
+        assert_eq!(templates[0].0, System);
         assert_eq!(templates[0].1, "You are a helpful AI bot.");
     }
 
@@ -32,13 +32,13 @@ mod tests {
         );
 
         assert_eq!(templates.len(), 3);
-        assert_eq!(templates[0].0, "system");
+        assert_eq!(templates[0].0, System);
         assert_eq!(templates[0].1, "You are a helpful AI bot.");
 
-        assert_eq!(templates[1].0, "human");
+        assert_eq!(templates[1].0, Human);
         assert_eq!(templates[1].1, "Hello, how are you doing?");
 
-        assert_eq!(templates[2].0, "ai");
+        assert_eq!(templates[2].0, Ai);
         assert_eq!(templates[2].1, "I'm doing well, thanks!");
     }
 
@@ -50,13 +50,13 @@ mod tests {
         );
 
         assert_eq!(templates.len(), 2);
-        assert_eq!(templates[0].0, "system");
+        assert_eq!(templates[0].0, System);
         assert_eq!(
             templates[0].1,
             "You are a {adjective} AI bot. Your name is {name}."
         );
 
-        assert_eq!(templates[1].0, "human");
+        assert_eq!(templates[1].0, Human);
         assert_eq!(templates[1].1, "What is your name?");
     }
 
@@ -68,10 +68,10 @@ mod tests {
         );
 
         assert_eq!(templates.len(), 2);
-        assert_eq!(templates[0].0, "system");
+        assert_eq!(templates[0].0, System);
         assert_eq!(templates[0].1, "You are a helpful AI bot.");
 
-        assert_eq!(templates[1].0, "human");
+        assert_eq!(templates[1].0, Human);
         assert_eq!(templates[1].1, "Hello, how are you doing?");
     }
 
@@ -83,10 +83,10 @@ mod tests {
         );
 
         assert_eq!(templates.len(), 2);
-        assert_eq!(templates[0].0, "system");
+        assert_eq!(templates[0].0, System);
         assert_eq!(templates[0].1, "You are a helpful AI bot.");
 
-        assert_eq!(templates[1].0, "human");
+        assert_eq!(templates[1].0, Human);
         assert_eq!(templates[1].1, "Hello, how are you doing?");
     }
 
@@ -94,10 +94,10 @@ mod tests {
     fn test_empty_template() {
         let templates = chat_templates!(System = "", Human = "Hello!",);
         assert_eq!(templates.len(), 2);
-        assert_eq!(templates[0].0, "system");
+        assert_eq!(templates[0].0, System);
         assert_eq!(templates[0].1, "");
 
-        assert_eq!(templates[1].0, "human");
+        assert_eq!(templates[1].0, Human);
         assert_eq!(templates[1].1, "Hello!");
     }
 }
