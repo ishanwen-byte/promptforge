@@ -22,3 +22,8 @@ pub use chat_prompt_template::ChatPromptTemplate;
 
 pub mod message_like;
 pub use message_like::MessageLike;
+
+pub mod chat_templates;
+
+pub mod role;
+pub use role::Role;
