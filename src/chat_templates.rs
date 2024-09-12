@@ -1,5 +1,11 @@
 #[macro_export]
 macro_rules! chat_templates {
+    () => {
+        {
+            const EMPTY: &[(Role, &str)] = &[];
+            EMPTY
+        }
+    };
     ($($role:ident = $tmpl:expr),+ $(,)?) => {
         &[
             $(
@@ -11,8 +17,14 @@ macro_rules! chat_templates {
 
 #[cfg(test)]
 mod tests {
-    use crate::chat_templates;
     use crate::role::Role::{Ai, Human, System};
+    use crate::{chat_templates, Role};
+
+    #[test]
+    fn test_empty_list() {
+        let templates = chat_templates!();
+        assert_eq!(templates.len(), 0);
+    }
 
     #[test]
     fn test_single_message() {
