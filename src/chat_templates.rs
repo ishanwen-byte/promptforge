@@ -3,7 +3,7 @@ macro_rules! chat_templates {
     ($($role:ident = $tmpl:expr),+ $(,)?) => {
         &[
             $(
-                ($role, $crate::prompt_template::PromptTemplate::from_template($tmpl).unwrap()),
+                ($role.to_string(), $tmpl.to_string()),
             )+
         ]
     };
@@ -13,15 +13,14 @@ macro_rules! chat_templates {
 mod tests {
     use crate::chat_templates;
     use crate::role::Role::{Ai, Human, System};
-    use crate::template::Template;
 
     #[test]
     fn test_single_message() {
         let templates = chat_templates!(System = "You are a helpful AI bot.");
 
         assert_eq!(templates.len(), 1);
-        assert_eq!(templates[0].0, System);
-        assert_eq!(templates[0].1.template(), "You are a helpful AI bot.");
+        assert_eq!(templates[0].0, "system");
+        assert_eq!(templates[0].1, "You are a helpful AI bot.");
     }
 
     #[test]
@@ -33,14 +32,14 @@ mod tests {
         );
 
         assert_eq!(templates.len(), 3);
-        assert_eq!(templates[0].0, System);
-        assert_eq!(templates[0].1.template(), "You are a helpful AI bot.");
+        assert_eq!(templates[0].0, "system");
+        assert_eq!(templates[0].1, "You are a helpful AI bot.");
 
-        assert_eq!(templates[1].0, Human);
-        assert_eq!(templates[1].1.template(), "Hello, how are you doing?");
+        assert_eq!(templates[1].0, "human");
+        assert_eq!(templates[1].1, "Hello, how are you doing?");
 
-        assert_eq!(templates[2].0, Ai);
-        assert_eq!(templates[2].1.template(), "I'm doing well, thanks!");
+        assert_eq!(templates[2].0, "ai");
+        assert_eq!(templates[2].1, "I'm doing well, thanks!");
     }
 
     #[test]
@@ -51,18 +50,14 @@ mod tests {
         );
 
         assert_eq!(templates.len(), 2);
-        assert_eq!(templates[0].0, System);
+        assert_eq!(templates[0].0, "system");
         assert_eq!(
-            templates[0].1.template(),
+            templates[0].1,
             "You are a {adjective} AI bot. Your name is {name}."
         );
-        assert!(templates[0]
-            .1
-            .input_variables()
-            .contains(&"name".to_string()));
 
-        assert_eq!(templates[1].0, Human);
-        assert_eq!(templates[1].1.template(), "What is your name?");
+        assert_eq!(templates[1].0, "human");
+        assert_eq!(templates[1].1, "What is your name?");
     }
 
     #[test]
@@ -73,11 +68,11 @@ mod tests {
         );
 
         assert_eq!(templates.len(), 2);
-        assert_eq!(templates[0].0, System);
-        assert_eq!(templates[0].1.template(), "You are a helpful AI bot.");
+        assert_eq!(templates[0].0, "system");
+        assert_eq!(templates[0].1, "You are a helpful AI bot.");
 
-        assert_eq!(templates[1].0, Human);
-        assert_eq!(templates[1].1.template(), "Hello, how are you doing?");
+        assert_eq!(templates[1].0, "human");
+        assert_eq!(templates[1].1, "Hello, how are you doing?");
     }
 
     #[test]
@@ -88,21 +83,21 @@ mod tests {
         );
 
         assert_eq!(templates.len(), 2);
-        assert_eq!(templates[0].0, System);
-        assert_eq!(templates[0].1.template(), "You are a helpful AI bot.");
+        assert_eq!(templates[0].0, "system");
+        assert_eq!(templates[0].1, "You are a helpful AI bot.");
 
-        assert_eq!(templates[1].0, Human);
-        assert_eq!(templates[1].1.template(), "Hello, how are you doing?");
+        assert_eq!(templates[1].0, "human");
+        assert_eq!(templates[1].1, "Hello, how are you doing?");
     }
 
     #[test]
     fn test_empty_template() {
         let templates = chat_templates!(System = "", Human = "Hello!",);
         assert_eq!(templates.len(), 2);
-        assert_eq!(templates[0].0, System);
-        assert_eq!(templates[0].1.template(), "");
+        assert_eq!(templates[0].0, "system");
+        assert_eq!(templates[0].1, "");
 
-        assert_eq!(templates[1].0, Human);
-        assert_eq!(templates[1].1.template(), "Hello!");
+        assert_eq!(templates[1].0, "human");
+        assert_eq!(templates[1].1, "Hello!");
     }
 }
