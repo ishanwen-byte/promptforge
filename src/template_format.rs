@@ -11,6 +11,7 @@ pub enum TemplateError {
     UnsupportedFormat(String),
     MissingVariable(String),
     RenderError(RenderError),
+    InvalidRoleError,
 }
 
 impl From<RenderError> for TemplateError {
@@ -26,6 +27,7 @@ impl std::fmt::Display for TemplateError {
             TemplateError::UnsupportedFormat(msg) => write!(f, "Unsupported format: {}", msg),
             TemplateError::MissingVariable(msg) => write!(f, "Missing variable: {}", msg),
             TemplateError::RenderError(err) => write!(f, "Render error: {}", err),
+            TemplateError::InvalidRoleError => write!(f, "Invalid role error"),
         }
     }
 }
@@ -39,6 +41,7 @@ impl TemplateError {
             (TemplateError::MalformedTemplate(a), TemplateError::MalformedTemplate(b)) => a == b,
             (TemplateError::UnsupportedFormat(a), TemplateError::UnsupportedFormat(b)) => a == b,
             (TemplateError::RenderError(_), TemplateError::RenderError(_)) => true,
+            (TemplateError::InvalidRoleError, TemplateError::InvalidRoleError) => true,
             _ => false,
         }
     }
