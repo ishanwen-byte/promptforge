@@ -2,7 +2,7 @@ use std::{convert::TryFrom, fmt, sync::Arc};
 
 use messageforge::{BaseMessage, SystemMessage};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Role {
     System,
     Human,
