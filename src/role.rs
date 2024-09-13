@@ -1,4 +1,6 @@
-use std::{convert::TryFrom, fmt};
+use std::{convert::TryFrom, fmt, sync::Arc};
+
+use messageforge::{BaseMessage, SystemMessage};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Role {
@@ -37,6 +39,16 @@ impl Role {
             Role::Placeholder => "placeholder",
         }
     }
+
+    pub fn to_message(self, content: &str) -> Result<Arc<dyn BaseMessage>, InvalidRoleError> {
+        match self {
+            Role::System => Ok(Arc::new(SystemMessage::new(content))),
+            Role::Human => Ok(Arc::new(SystemMessage::new(content))),
+            Role::Ai => Ok(Arc::new(SystemMessage::new(content))),
+            Role::Tool => Ok(Arc::new(SystemMessage::new(content))),
+            _ => Err(InvalidRoleError),
+        }
+    }
 }
 
 impl fmt::Display for Role {
@@ -66,5 +78,50 @@ mod tests {
         assert_eq!(Role::try_from("tool").unwrap(), Role::Tool);
         assert_eq!(Role::try_from("placeholder").unwrap(), Role::Placeholder);
         assert!(Role::try_from("invalid").is_err());
+    }
+
+    #[test]
+    fn test_system_message_creation() {
+        let role = Role::System;
+        let content = "This is a system message.";
+        let result = role.to_message(content);
+        let message = result.unwrap();
+        assert_eq!(message.content(), content);
+    }
+
+    #[test]
+    fn test_human_message_creation() {
+        let role = Role::Human;
+        let content = "This is a human message.";
+        let result = role.to_message(content);
+        let message = result.unwrap();
+        assert_eq!(message.content(), content);
+    }
+
+    #[test]
+    fn test_ai_message_creation() {
+        let role = Role::Ai;
+        let content = "This is an AI message.";
+        let result = role.to_message(content);
+        let message = result.unwrap();
+        assert_eq!(message.content(), content);
+    }
+
+    #[test]
+    fn test_tool_message_creation() {
+        let role = Role::Tool;
+        let content = "This is a tool message.";
+        let result = role.to_message(content);
+        let message = result.unwrap();
+        assert_eq!(message.content(), content);
+    }
+
+    #[test]
+    fn test_invalid_role() {
+        let role = Role::Placeholder;
+        let content = "This is a placeholder message.";
+        let result = role.to_message(content);
+
+        assert_eq!(result.unwrap_err(), InvalidRoleError);
     }
 }
