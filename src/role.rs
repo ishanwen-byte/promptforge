@@ -1,6 +1,6 @@
-use std::{convert::TryFrom, fmt, sync::Arc};
+use std::{convert::TryFrom, fmt};
 
-use messageforge::{BaseMessage, SystemMessage};
+use messageforge::{AiMessage, BaseMessage, HumanMessage, SystemMessage};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Role {
@@ -40,12 +40,12 @@ impl Role {
         }
     }
 
-    pub fn to_message(self, content: &str) -> Result<Arc<dyn BaseMessage>, InvalidRoleError> {
+    pub fn to_message(self, content: &str) -> Result<Box<dyn BaseMessage>, InvalidRoleError> {
         match self {
-            Role::System => Ok(Arc::new(SystemMessage::new(content))),
-            Role::Human => Ok(Arc::new(SystemMessage::new(content))),
-            Role::Ai => Ok(Arc::new(SystemMessage::new(content))),
-            Role::Tool => Ok(Arc::new(SystemMessage::new(content))),
+            Role::System => Ok(Box::new(SystemMessage::new(content))),
+            Role::Human => Ok(Box::new(HumanMessage::new(content))),
+            Role::Ai => Ok(Box::new(AiMessage::new(content))),
+            // Role::Tool => Ok(Box::new(ToolMessage::new(content))),
             _ => Err(InvalidRoleError),
         }
     }
@@ -107,14 +107,14 @@ mod tests {
         assert_eq!(message.content(), content);
     }
 
-    #[test]
-    fn test_tool_message_creation() {
-        let role = Role::Tool;
-        let content = "This is a tool message.";
-        let result = role.to_message(content);
-        let message = result.unwrap();
-        assert_eq!(message.content(), content);
-    }
+    // #[test]
+    // fn test_tool_message_creation() {
+    //     let role = Role::Tool;
+    //     let content = "This is a tool message.";
+    //     let result = role.to_message(content);
+    //     let message = result.unwrap();
+    //     assert_eq!(message.content(), content);
+    // }
 
     #[test]
     fn test_invalid_role() {
