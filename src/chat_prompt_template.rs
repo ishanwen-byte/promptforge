@@ -36,8 +36,8 @@ impl ChatPromptTemplate {
 mod tests {
     use super::*;
     use crate::chat_templates;
+    use crate::message_like::MessageLike;
     use crate::Role::{Ai, Human, Placeholder, System};
-    use crate::{message_like::MessageLike, TemplateError};
 
     #[test]
     fn test_from_messages_plaintext() {
@@ -92,15 +92,26 @@ mod tests {
     }
 
     #[test]
-    fn test_from_messages_invalid_role() {
+    fn test_from_messages_placeholder() {
         let templates = chat_templates!(
             System = "This is a valid system message.",
-            Placeholder = "This is an invalid role message.",
+            Placeholder = "{history}",
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates);
-        assert!(chat_prompt
-            .unwrap_err()
-            .matches(&TemplateError::InvalidRoleError));
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        assert_eq!(chat_prompt.messages.len(), 2);
+
+        if let MessageLike::BaseMessage(system_message) = &chat_prompt.messages[0] {
+            assert_eq!(system_message.content(), "This is a valid system message.");
+        } else {
+            panic!("Expected BaseMessage for the system role.");
+        }
+
+        if let MessageLike::RolePromptTemplate(role, tmpl) = &chat_prompt.messages[1] {
+            assert_eq!(*role, Role::Placeholder);
+            assert_eq!(tmpl.template(), "{history}");
+        } else {
+            panic!("Expected RolePromptTemplate for the placeholder role.");
+        }
     }
 }
