@@ -45,7 +45,6 @@ impl Role {
             Role::System => Ok(Box::new(SystemMessage::new(content))),
             Role::Human => Ok(Box::new(HumanMessage::new(content))),
             Role::Ai => Ok(Box::new(AiMessage::new(content))),
-            // Role::Tool => Ok(Box::new(ToolMessage::new(content))),
             _ => Err(InvalidRoleError),
         }
     }
@@ -107,14 +106,13 @@ mod tests {
         assert_eq!(message.content(), content);
     }
 
-    // #[test]
-    // fn test_tool_message_creation() {
-    //     let role = Role::Tool;
-    //     let content = "This is a tool message.";
-    //     let result = role.to_message(content);
-    //     let message = result.unwrap();
-    //     assert_eq!(message.content(), content);
-    // }
+    #[test]
+    fn test_tool_message_creation() {
+        let role = Role::Tool;
+        let content = "This is a tool message.";
+        let result = role.to_message(content);
+        assert_eq!(result.unwrap_err(), InvalidRoleError);
+    }
 
     #[test]
     fn test_invalid_role() {
