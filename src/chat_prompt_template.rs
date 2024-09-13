@@ -1,7 +1,6 @@
 use crate::{
     message_like::MessageLike, PromptTemplate, Role, Template, TemplateError, TemplateFormat,
 };
-use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct ChatPromptTemplate {
@@ -17,11 +16,14 @@ impl ChatPromptTemplate {
 
             match prompt_template.template_format() {
                 TemplateFormat::PlainText => match role.to_message(tmpl) {
-                    Ok(base_message) => result.push(MessageLike::BaseMessage(base_message)),
+                    Ok(base_message) => result.push(MessageLike::from_base_message(base_message)),
                     Err(_) => return Err(TemplateError::InvalidRoleError),
                 },
                 _ => {
-                    result.push(MessageLike::PromptTemplate(Arc::new(prompt_template)));
+                    result.push(MessageLike::from_role_prompt_template(
+                        role,
+                        prompt_template,
+                    ));
                 }
             }
         }
@@ -72,11 +74,12 @@ mod tests {
         let chat_prompt = chat_prompt.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
-        if let MessageLike::PromptTemplate(template) = &chat_prompt.messages[0] {
+        if let MessageLike::RolePromptTemplate(role, template) = &chat_prompt.messages[0] {
             assert_eq!(
                 template.template(),
                 "You are a helpful AI bot. Your name is {name}."
             );
+            assert_eq!(role, &System);
         } else {
             panic!("Expected a PromptTemplate for the system message.");
         }
