@@ -183,7 +183,9 @@ use handlebars::Handlebars;
 
 use crate::placeholder::extract_variables;
 use crate::template::Template;
-use crate::template_format::{detect_template, validate_template, TemplateError, TemplateFormat};
+use crate::template_format::{
+    detect_template, merge_vars, validate_template, TemplateError, TemplateFormat,
+};
 
 #[derive(Debug)]
 pub struct PromptTemplate {
@@ -292,7 +294,8 @@ impl Template for PromptTemplate {
         &self,
         variables: std::collections::HashMap<&str, &str>,
     ) -> Result<String, TemplateError> {
-        self.validate_variables(&variables)?;
+        let merged_variables = merge_vars(&self.partials, &variables);
+        self.validate_variables(&merged_variables)?;
 
         match self.template_format {
             TemplateFormat::FmtString => self.format_fmtstring(&variables),
@@ -461,6 +464,16 @@ mod tests {
 
         let partial_vars = template.partial_vars();
         assert_eq!(partial_vars.get("name"), Some(&"Jill".to_string()));
+
+        // Test formatting with partials
+        let variables = prompt_vars!();
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, Jill");
+
+        // Test formatting with runtime vars that override partials
+        let variables = prompt_vars!(name = "Alice");
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, Alice");
     }
 
     #[test]
@@ -472,6 +485,16 @@ mod tests {
         let partial_vars = template.partial_vars();
         assert_eq!(partial_vars.get("name"), Some(&"Jill".to_string()));
         assert_eq!(partial_vars.get("mood"), Some(&"happy".to_string()));
+
+        // Test formatting using partials
+        let variables = prompt_vars!();
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, Jill. You are feeling happy.");
+
+        // Test overriding a partial with runtime variable
+        let variables = prompt_vars!(mood = "excited");
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, Jill. You are feeling excited.");
     }
 
     #[test]
@@ -482,6 +505,15 @@ mod tests {
 
         let partial_vars = template.partial_vars();
         assert!(partial_vars.is_empty());
+
+        // Test formatting after clearing partials
+        let variables = prompt_vars!(name = "John");
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, John");
+
+        let variables = prompt_vars!();
+        let result = template.format(variables);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -502,5 +534,69 @@ mod tests {
 
         template.clear_partials();
         assert!(template.partial_vars().is_empty());
+
+        // Test formatting with cleared partials
+        let variables = prompt_vars!(name = "Charlie");
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, Charlie");
+
+        let variables = prompt_vars!();
+        let result = template.format(variables);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_format_with_partials_and_runtime_vars() {
+        let mut template = PromptTemplate::new("Hello, {name}. You are feeling {mood}.").unwrap();
+
+        template.partial("name", "Alice").partial("mood", "calm");
+
+        // No runtime variables, should use partials
+        let variables = prompt_vars!();
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, Alice. You are feeling calm.");
+
+        let variables = prompt_vars!(mood = "excited");
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, Alice. You are feeling excited.");
+
+        // Runtime variable overrides name
+        let variables = prompt_vars!(name = "Bob");
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, Bob. You are feeling calm.");
+
+        // Runtime variables override both
+        let variables = prompt_vars!(name = "Charlie", mood = "joyful");
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, Charlie. You are feeling joyful.");
+    }
+
+    #[test]
+    fn test_format_with_missing_variables_in_partials() {
+        let mut template = PromptTemplate::new("Hello, {name}. You are feeling {mood}.").unwrap();
+
+        template.partial("name", "Alice");
+
+        // Partial variable should be filled, but mood is missing
+        let variables = prompt_vars!();
+        let result = template.format(variables);
+        assert!(result.is_err());
+
+        // Runtime variable fills the missing mood
+        let variables = prompt_vars!(mood = "happy");
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, Alice. You are feeling happy.");
+    }
+
+    #[test]
+    fn test_format_with_conflicting_partial_and_runtime_vars() {
+        let mut template = PromptTemplate::new("Hello, {name}. You are feeling {mood}.").unwrap();
+
+        template.partial("name", "Alice").partial("mood", "calm");
+
+        // Both partial and runtime variable have same key
+        let variables = prompt_vars!(name = "Bob", mood = "excited");
+        let formatted = template.format(variables).unwrap();
+        assert_eq!(formatted, "Hello, Bob. You are feeling excited.");
     }
 }
