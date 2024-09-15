@@ -34,7 +34,7 @@ mod tests {
 
         if let MessageLike::BaseMessage(msg) = message_like {
             assert_eq!(msg.content(), "Hello, how are you?");
-            assert_eq!(msg.message_type(), MessageType::Human);
+            assert_eq!(msg.message_type(), &MessageType::Human);
         } else {
             panic!("Expected MessageLike::BaseMessage variant.");
         }
@@ -48,7 +48,7 @@ mod tests {
 
         if let MessageLike::BaseMessage(msg) = message_like {
             assert_eq!(msg.content(), "I am an AI.");
-            assert_eq!(msg.message_type(), MessageType::Ai);
+            assert_eq!(msg.message_type(), &MessageType::Ai);
         } else {
             panic!("Expected MessageLike::BaseMessage variant.");
         }
@@ -62,7 +62,7 @@ mod tests {
 
         if let MessageLike::BaseMessage(msg) = message_like {
             assert_eq!(msg.content(), "You are a helpful assistant.");
-            assert_eq!(msg.message_type(), MessageType::System);
+            assert_eq!(msg.message_type(), &MessageType::System);
         } else {
             panic!("Expected MessageLike::BaseMessage variant.");
         }

@@ -191,6 +191,7 @@ pub struct PromptTemplate {
     template_format: TemplateFormat,
     input_variables: Vec<String>,
     handlebars: Option<Handlebars<'static>>,
+    partials: HashMap<String, String>,
 }
 
 impl PromptTemplate {
@@ -214,11 +215,26 @@ impl PromptTemplate {
             template_format,
             input_variables,
             handlebars,
+            partials: HashMap::new(),
         })
     }
 
     pub fn from_template(tmpl: &str) -> Result<Self, TemplateError> {
         Self::new(tmpl)
+    }
+
+    pub fn partial(&mut self, var: &str, value: &str) -> &mut Self {
+        self.partials.insert(var.to_string(), value.to_string());
+        self
+    }
+
+    pub fn clear_partials(&mut self) -> &mut Self {
+        self.partials.clear();
+        self
+    }
+
+    pub fn partial_vars(&self) -> &HashMap<String, String> {
+        &self.partials
     }
 
     fn initialize_handlebars(tmpl: &str) -> Result<Handlebars<'static>, TemplateError> {
@@ -435,5 +451,56 @@ mod tests {
         let tmpl_with_newlines = PromptTemplate::new("Text with\nmultiple lines\n").unwrap();
         let result = tmpl_with_newlines.format(prompt_vars!()).unwrap();
         assert_eq!(result, "Text with\nmultiple lines\n");
+    }
+
+    #[test]
+    fn test_partial_adds_variables() {
+        let mut template = PromptTemplate::new("Hello, {name}").unwrap();
+
+        template.partial("name", "Jill");
+
+        let partial_vars = template.partial_vars();
+        assert_eq!(partial_vars.get("name"), Some(&"Jill".to_string()));
+    }
+
+    #[test]
+    fn test_multiple_partials() {
+        let mut template = PromptTemplate::new("Hello, {name}. You are feeling {mood}.").unwrap();
+
+        template.partial("name", "Jill").partial("mood", "happy");
+
+        let partial_vars = template.partial_vars();
+        assert_eq!(partial_vars.get("name"), Some(&"Jill".to_string()));
+        assert_eq!(partial_vars.get("mood"), Some(&"happy".to_string()));
+    }
+
+    #[test]
+    fn test_clear_partials() {
+        let mut template = PromptTemplate::new("Hello, {name}.").unwrap();
+
+        template.partial("name", "Jill").clear_partials();
+
+        let partial_vars = template.partial_vars();
+        assert!(partial_vars.is_empty());
+    }
+
+    #[test]
+    fn test_partial_vars() {
+        let mut template = PromptTemplate::new("Hello, {name}!").unwrap();
+        template.partial("name", "Alice");
+
+        assert_eq!(
+            template.partial_vars().get("name"),
+            Some(&"Alice".to_string())
+        );
+
+        template.partial("name", "Bob");
+        assert_eq!(
+            template.partial_vars().get("name"),
+            Some(&"Bob".to_string())
+        );
+
+        template.clear_partials();
+        assert!(template.partial_vars().is_empty());
     }
 }
