@@ -2,9 +2,12 @@ use std::collections::HashMap;
 
 use handlebars::RenderError;
 
-use crate::braces::{
-    count_left_braces, count_right_braces, has_multiple_words_between_braces, has_no_braces,
-    has_only_double_braces, has_only_single_braces,
+use crate::{
+    braces::{
+        count_left_braces, count_right_braces, has_multiple_words_between_braces, has_no_braces,
+        has_only_double_braces, has_only_single_braces,
+    },
+    role::InvalidRoleError,
 };
 
 #[derive(Debug)]
@@ -14,6 +17,12 @@ pub enum TemplateError {
     MissingVariable(String),
     RenderError(RenderError),
     InvalidRoleError,
+}
+
+impl From<InvalidRoleError> for TemplateError {
+    fn from(_: InvalidRoleError) -> Self {
+        TemplateError::InvalidRoleError
+    }
 }
 
 impl From<RenderError> for TemplateError {

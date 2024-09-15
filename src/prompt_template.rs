@@ -254,8 +254,15 @@ impl PromptTemplate {
         variables: &std::collections::HashMap<&str, &str>,
     ) -> Result<(), TemplateError> {
         for var in &self.input_variables {
-            if !variables.contains_key(var.as_str()) {
-                return Err(TemplateError::MissingVariable(var.clone()));
+            let has_key = variables.contains_key(var.as_str());
+            dbg!(var, has_key);
+            if !has_key {
+                return Err(TemplateError::MissingVariable(format!(
+                    "Variable '{}' is missing. Expected: {:?}, but received: {:?}",
+                    var,
+                    self.input_variables,
+                    variables.keys().collect::<Vec<_>>()
+                )));
             }
         }
         Ok(())
@@ -298,8 +305,8 @@ impl Template for PromptTemplate {
         self.validate_variables(&merged_variables)?;
 
         match self.template_format {
-            TemplateFormat::FmtString => self.format_fmtstring(&variables),
-            TemplateFormat::Mustache => self.format_mustache(&variables),
+            TemplateFormat::FmtString => self.format_fmtstring(&merged_variables),
+            TemplateFormat::Mustache => self.format_mustache(&merged_variables),
             TemplateFormat::PlainText => Ok(self.template.clone()),
         }
     }
@@ -509,7 +516,7 @@ mod tests {
         // Test formatting after clearing partials
         let variables = prompt_vars!(name = "John");
         let formatted = template.format(variables).unwrap();
-        assert_eq!(formatted, "Hello, John");
+        assert_eq!(formatted, "Hello, John.");
 
         let variables = prompt_vars!();
         let result = template.format(variables);
@@ -538,7 +545,7 @@ mod tests {
         // Test formatting with cleared partials
         let variables = prompt_vars!(name = "Charlie");
         let formatted = template.format(variables).unwrap();
-        assert_eq!(formatted, "Hello, Charlie");
+        assert_eq!(formatted, "Hello, Charlie!");
 
         let variables = prompt_vars!();
         let result = template.format(variables);

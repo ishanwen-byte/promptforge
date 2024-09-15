@@ -1,5 +1,10 @@
+use std::{collections::HashMap, sync::Arc};
+
+use messageforge::{BaseMessage, MessageEnum};
+
 use crate::{
-    message_like::MessageLike, PromptTemplate, Role, Template, TemplateError, TemplateFormat,
+    extract_placeholder_variable, message_like::MessageLike, PromptTemplate, Role, Template,
+    TemplateError, TemplateFormat,
 };
 
 #[derive(Debug, Clone)]
@@ -29,6 +34,49 @@ impl ChatPromptTemplate {
         }
 
         Ok(ChatPromptTemplate { messages: result })
+    }
+
+    pub fn invoke(
+        &self,
+        variables: &HashMap<&str, &str>,
+    ) -> Result<Vec<Arc<dyn BaseMessage>>, TemplateError> {
+        let mut result = Vec::new();
+
+        for message_like in &self.messages {
+            match message_like {
+                MessageLike::BaseMessage(base_message) => {
+                    result.push(base_message.clone());
+                }
+
+                MessageLike::RolePromptTemplate(role, template) => {
+                    if *role == Role::Placeholder {
+                        let placeholder_var = extract_placeholder_variable(template.template())?;
+
+                        if let Some(history) = variables.get(placeholder_var.as_str()) {
+                            let deserialized_messages: Vec<MessageEnum> =
+                                serde_json::from_str(history).map_err(|e| {
+                                    TemplateError::MalformedTemplate(format!(
+                                        "Failed to deserialize placeholder: {}",
+                                        e
+                                    ))
+                                })?;
+
+                            for message_enum in deserialized_messages {
+                                result.push(Arc::new(message_enum) as Arc<dyn BaseMessage>);
+                            }
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        let formatted_message = template.format(variables.clone())?;
+                        let base_message = role.to_message(&formatted_message)?;
+                        result.push(Arc::from(base_message));
+                    }
+                }
+            }
+        }
+
+        Ok(result)
     }
 }
 

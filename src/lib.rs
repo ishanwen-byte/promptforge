@@ -4,6 +4,9 @@ pub mod is_even;
 pub use is_even::IsEven;
 
 pub mod placeholder;
+pub use placeholder::extract_placeholder_variable;
+pub use placeholder::extract_variables;
+pub use placeholder::is_valid_identifier;
 
 pub mod template_format;
 pub use template_format::TemplateError;

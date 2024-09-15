@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::braces::has_multiple_words_between_braces;
+use crate::{braces::has_multiple_words_between_braces, TemplateError};
 use regex::Regex;
 
 pub fn is_valid_identifier(s: &str) -> bool {
@@ -24,6 +24,18 @@ pub fn extract_variables(template: &str) -> Vec<String> {
     }
 
     result
+}
+
+pub fn extract_placeholder_variable(template: &str) -> Result<String, TemplateError> {
+    let variables = extract_variables(template);
+
+    if variables.len() == 1 {
+        Ok(variables[0].clone())
+    } else {
+        Err(TemplateError::MalformedTemplate(
+            "Template must contain exactly one placeholder variable.".to_string(),
+        ))
+    }
 }
 
 #[cfg(test)]
