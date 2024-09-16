@@ -30,3 +30,6 @@ pub mod chat_templates;
 
 pub mod role;
 pub use role::Role;
+
+pub mod messages_placeholder;
+pub use messages_placeholder::MessagesPlaceholder;
