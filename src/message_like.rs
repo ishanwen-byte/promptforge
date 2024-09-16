@@ -1,5 +1,6 @@
 use crate::prompt_template::PromptTemplate;
 use crate::role::Role;
+use crate::MessagesPlaceholder;
 use messageforge::BaseMessage;
 use std::sync::Arc;
 
@@ -7,6 +8,7 @@ use std::sync::Arc;
 pub enum MessageLike {
     BaseMessage(Arc<dyn BaseMessage>),
     RolePromptTemplate(Role, Arc<PromptTemplate>),
+    Placeholder(MessagesPlaceholder),
 }
 
 impl MessageLike {
@@ -14,8 +16,12 @@ impl MessageLike {
         MessageLike::BaseMessage(Arc::from(message))
     }
 
-    pub fn from_role_prompt_template(role: &Role, template: PromptTemplate) -> Self {
-        MessageLike::RolePromptTemplate(*role, Arc::new(template))
+    pub fn from_role_prompt_template(role: Role, template: PromptTemplate) -> Self {
+        MessageLike::RolePromptTemplate(role, Arc::new(template))
+    }
+
+    pub fn from_placeholder(placeholder: MessagesPlaceholder) -> Self {
+        MessageLike::Placeholder(placeholder)
     }
 }
 
@@ -71,7 +77,7 @@ mod tests {
     #[test]
     fn test_from_role_prompt_template() {
         let template = PromptTemplate::new("Hello, {name}!").unwrap();
-        let message_like = MessageLike::from_role_prompt_template(&Role::Human, template);
+        let message_like = MessageLike::from_role_prompt_template(Role::Human, template);
 
         if let MessageLike::RolePromptTemplate(role, tmpl) = message_like {
             assert_eq!(role, Role::Human);
@@ -95,7 +101,7 @@ mod tests {
         }
 
         let template = PromptTemplate::new("Hello, {name}!").unwrap();
-        let message_like = MessageLike::from_role_prompt_template(&Role::Ai, template);
+        let message_like = MessageLike::from_role_prompt_template(Role::Ai, template);
         let cloned_message_like = message_like.clone();
 
         if let MessageLike::RolePromptTemplate(role, tmpl) = cloned_message_like {
@@ -103,6 +109,55 @@ mod tests {
             assert_eq!(tmpl.template(), "Hello, {name}!");
         } else {
             panic!("Expected MessageLike::RolePromptTemplate variant.");
+        }
+    }
+
+    #[test]
+    fn test_from_placeholder() {
+        let placeholder = MessagesPlaceholder::new("history".to_string());
+        let message_like = MessageLike::from_placeholder(placeholder.clone());
+
+        if let MessageLike::Placeholder(placeholder_msg) = message_like {
+            assert_eq!(placeholder_msg.variable_name(), "history");
+            assert!(!placeholder_msg.optional());
+            assert_eq!(
+                placeholder_msg.n_messages(),
+                MessagesPlaceholder::DEFAULT_LIMIT
+            );
+        } else {
+            panic!("Expected MessageLike::Placeholder variant.");
+        }
+    }
+
+    #[test]
+    fn test_clone_message_like_placeholder() {
+        let placeholder = MessagesPlaceholder::new("history".to_string());
+        let message_like = MessageLike::from_placeholder(placeholder.clone());
+        let cloned_message_like = message_like.clone();
+
+        if let MessageLike::Placeholder(placeholder_msg) = cloned_message_like {
+            assert_eq!(placeholder_msg.variable_name(), "history");
+            assert!(!placeholder_msg.optional());
+            assert_eq!(
+                placeholder_msg.n_messages(),
+                MessagesPlaceholder::DEFAULT_LIMIT
+            );
+        } else {
+            panic!("Expected MessageLike::Placeholder variant.");
+        }
+    }
+
+    #[test]
+    fn test_placeholder_with_options() {
+        let placeholder = MessagesPlaceholder::with_options("history".to_string(), true, 50);
+        let message_like = MessageLike::from_placeholder(placeholder.clone());
+
+        if let MessageLike::Placeholder(placeholder_msg) = message_like {
+            assert_eq!(placeholder_msg.variable_name(), "history");
+            assert!(placeholder_msg.optional());
+            assert_eq!(placeholder_msg.n_messages(), 50);
+        } else {
+            panic!("Expected MessageLike::Placeholder variant.");
         }
     }
 }
