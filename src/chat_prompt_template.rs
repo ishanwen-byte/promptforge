@@ -3,8 +3,8 @@ use std::{collections::HashMap, ops::Add, sync::Arc};
 use messageforge::{BaseMessage, MessageEnum};
 
 use crate::{
-    extract_placeholder_variable, message_like::MessageLike, PromptTemplate, Role, Template,
-    TemplateError, TemplateFormat,
+    message_like::MessageLike, MessagesPlaceholder, PromptTemplate, Role, Template, TemplateError,
+    TemplateFormat,
 };
 
 #[derive(Debug, Clone)]
@@ -17,13 +17,21 @@ impl ChatPromptTemplate {
         let mut result = Vec::new();
 
         for &(role, tmpl) in messages {
+            if role == Role::Placeholder {
+                let placeholder = MessagesPlaceholder::try_from(tmpl)?;
+                result.push(MessageLike::from_placeholder(placeholder));
+                continue;
+            }
+
             let prompt_template = PromptTemplate::from_template(tmpl)?;
 
             match prompt_template.template_format() {
-                TemplateFormat::PlainText => match role.to_message(tmpl) {
-                    Ok(base_message) => result.push(MessageLike::from_base_message(base_message)),
-                    Err(_) => return Err(TemplateError::InvalidRoleError),
-                },
+                TemplateFormat::PlainText => {
+                    let base_message = role
+                        .to_message(tmpl)
+                        .map_err(|_| TemplateError::InvalidRoleError)?;
+                    result.push(MessageLike::from_base_message(base_message))
+                }
                 _ => {
                     result.push(MessageLike::from_role_prompt_template(
                         role,
@@ -47,44 +55,61 @@ impl ChatPromptTemplate {
         &self,
         variables: &HashMap<&str, &str>,
     ) -> Result<Vec<Arc<dyn BaseMessage>>, TemplateError> {
-        let mut result = Vec::new();
-
-        for message_like in &self.messages {
-            match message_like {
-                MessageLike::BaseMessage(base_message) => {
-                    result.push(base_message.clone());
-                }
+        self.messages
+            .iter()
+            .map(|message_like| match message_like {
+                MessageLike::BaseMessage(base_message) => Ok(vec![base_message.clone()]),
 
                 MessageLike::RolePromptTemplate(role, template) => {
-                    if *role == Role::Placeholder {
-                        let placeholder_var = extract_placeholder_variable(template.template())?;
+                    let formatted_message = template
+                        .format(variables.clone())
+                        .map_err(|e| TemplateError::MalformedTemplate(e.to_string()))?;
+                    let base_message = role
+                        .to_message(&formatted_message)
+                        .map_err(|_| TemplateError::InvalidRoleError)?;
+                    Ok(vec![base_message])
+                }
 
-                        if let Some(history) = variables.get(placeholder_var.as_str()) {
-                            let deserialized_messages: Vec<MessageEnum> =
-                                serde_json::from_str(history).map_err(|e| {
-                                    TemplateError::MalformedTemplate(format!(
-                                        "Failed to deserialize placeholder: {}",
-                                        e
-                                    ))
-                                })?;
-
-                            for message_enum in deserialized_messages {
-                                result.push(Arc::new(message_enum) as Arc<dyn BaseMessage>);
-                            }
-                        } else {
-                            continue;
-                        }
+                MessageLike::Placeholder(placeholder) => {
+                    if placeholder.optional() {
+                        Ok(vec![])
                     } else {
-                        let formatted_message = template.format(variables.clone())?;
-                        let base_message = role.to_message(&formatted_message)?;
-                        result.push(base_message);
+                        let messages =
+                            variables.get(placeholder.variable_name()).ok_or_else(|| {
+                                TemplateError::MissingVariable(
+                                    placeholder.variable_name().to_string(),
+                                )
+                            })?;
+
+                        let deserialized_messages: Vec<MessageEnum> =
+                            serde_json::from_str(messages).map_err(|e| {
+                                TemplateError::MalformedTemplate(format!(
+                                    "Failed to deserialize placeholder: {}",
+                                    e
+                                ))
+                            })?;
+
+                        let limited_messages = if placeholder.n_messages() > 0 {
+                            deserialized_messages
+                                .into_iter()
+                                .take(placeholder.n_messages())
+                                .collect()
+                        } else {
+                            deserialized_messages
+                        };
+
+                        Ok(limited_messages
+                            .into_iter()
+                            .map(|message_enum| Arc::new(message_enum) as Arc<dyn BaseMessage>)
+                            .collect())
                     }
                 }
-                _ => return Err(TemplateError::InvalidRoleError),
-            }
-        }
-
-        Ok(result)
+            })
+            .flat_map(|result| match result {
+                Ok(messages) => messages.into_iter().map(Ok).collect::<Vec<_>>(),
+                Err(e) => vec![Err(e)],
+            })
+            .collect::<Result<Vec<_>, _>>()
     }
 }
 
@@ -173,11 +198,12 @@ mod tests {
             panic!("Expected BaseMessage for the system role.");
         }
 
-        if let MessageLike::RolePromptTemplate(role, tmpl) = &chat_prompt.messages[1] {
-            assert_eq!(*role, Role::Placeholder);
-            assert_eq!(tmpl.template(), "{history}");
+        if let MessageLike::Placeholder(placeholder) = &chat_prompt.messages[1] {
+            assert_eq!(placeholder.variable_name(), "history");
+            assert!(!placeholder.optional());
+            assert_eq!(placeholder.n_messages(), MessagesPlaceholder::DEFAULT_LIMIT);
         } else {
-            panic!("Expected RolePromptTemplate for the placeholder role.");
+            panic!("Expected MessagesPlaceholder for the placeholder role.");
         }
     }
 
