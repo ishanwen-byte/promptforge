@@ -82,10 +82,12 @@ impl ChatPromptTemplate {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
-    use crate::chat_templates;
     use crate::message_like::MessageLike;
     use crate::Role::{Ai, Human, Placeholder, System};
+    use crate::{chat_templates, prompt_vars};
 
     #[test]
     fn test_from_messages_plaintext() {
@@ -161,5 +163,138 @@ mod tests {
         } else {
             panic!("Expected RolePromptTemplate for the placeholder role.");
         }
+    }
+
+    #[test]
+    fn test_invoke_with_base_messages() {
+        let templates = chat_templates!(
+            System = "This is a system message.",
+            Human = "Hello, human!"
+        );
+
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+
+        assert_eq!(chat_prompt.messages.len(), 2);
+
+        let variables = HashMap::new();
+        let result = chat_prompt.invoke(&variables).unwrap();
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].content(), "This is a system message.");
+        assert_eq!(result[1].content(), "Hello, human!");
+    }
+
+    #[test]
+    fn test_invoke_with_role_prompt_template() {
+        let templates = chat_templates!(
+            System = "System maintenance is scheduled.",
+            Human = "Hello, {name}!"
+        );
+
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        assert_eq!(chat_prompt.messages.len(), 2);
+
+        let variables = prompt_vars!(name = "Alice");
+        let result = chat_prompt.invoke(&variables).unwrap();
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].content(), "System maintenance is scheduled.");
+        assert_eq!(result[1].content(), "Hello, Alice!");
+    }
+
+    #[test]
+    fn test_invoke_with_placeholder_and_role_templates() {
+        let history_json = json!([
+            {
+                "role": "human",
+                "content": "Hello, AI.",
+                "example": false,
+                "message_type": "Human"
+            },
+            {
+                "role": "ai",
+                "content": "Hi, how can I assist you today?",
+                "example": false,
+                "message_type": "Ai"
+            }
+        ])
+        .to_string();
+
+        let templates = chat_templates!(
+            System = "This is a system message.",
+            Placeholder = "{history}",
+            Human = "How can I help you, {name}?"
+        );
+
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        assert_eq!(chat_prompt.messages.len(), 3);
+
+        let variables = prompt_vars!(history = history_json.as_str(), name = "Bob");
+        let result = chat_prompt.invoke(&variables).unwrap();
+
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[0].content(), "This is a system message.");
+        assert_eq!(result[1].content(), "Hello, AI.");
+        assert_eq!(result[2].content(), "Hi, how can I assist you today?");
+        assert_eq!(result[3].content(), "How can I help you, Bob?");
+    }
+
+    #[test]
+    fn test_invoke_with_invalid_json_history() {
+        let invalid_history_json = "invalid json string";
+
+        let templates = chat_templates!(
+            System = "This is a system message.",
+            Placeholder = "{history}",
+            Human = "How can I help you, {name}?"
+        );
+
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        let variables = prompt_vars!(history = invalid_history_json, name = "Bob");
+
+        let result = chat_prompt.invoke(&variables);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_templates() {
+        let templates = chat_templates!();
+        let chat_prompt = ChatPromptTemplate::from_messages(templates);
+        assert!(chat_prompt.is_ok());
+        assert!(chat_prompt.unwrap().messages.is_empty());
+    }
+
+    #[test]
+    fn test_invoke_with_empty_variables_map() {
+        let templates = chat_templates!(
+            System = "System maintenance is scheduled.",
+            Human = "Hello, {name}!"
+        );
+
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        let variables = prompt_vars!();
+
+        let result = chat_prompt.invoke(&variables);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invoke_with_multiple_placeholders_in_one_template() {
+        let templates = chat_templates!(
+            Human = "Hello, {name}. How are you on this {day}?",
+            System = "Today is {day}. Have a great {day}."
+        );
+
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        let variables = prompt_vars!(name = "Alice", day = "Monday");
+
+        let result = chat_prompt.invoke(&variables).unwrap();
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(
+            result[0].content(),
+            "Hello, Alice. How are you on this Monday?"
+        );
+        assert_eq!(result[1].content(), "Today is Monday. Have a great Monday.");
     }
 }
