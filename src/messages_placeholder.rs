@@ -1,3 +1,5 @@
+use crate::{extract_placeholder_variable, TemplateError};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MessagesPlaceholder {
     variable_name: String,
@@ -41,6 +43,15 @@ impl MessagesPlaceholder {
     }
 }
 
+impl TryFrom<&str> for MessagesPlaceholder {
+    type Error = TemplateError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        let placeholder_variable = extract_placeholder_variable(s)?;
+        Ok(MessagesPlaceholder::new(placeholder_variable))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -79,5 +90,90 @@ mod tests {
         assert_eq!(placeholder.variable_name, "history");
         assert!(placeholder.optional);
         assert_eq!(placeholder.n_messages, MessagesPlaceholder::DEFAULT_LIMIT);
+    }
+
+    #[test]
+    fn test_tryfrom_valid_placeholder() {
+        let template = "{history}";
+        let placeholder = MessagesPlaceholder::try_from(template).unwrap();
+
+        assert_eq!(placeholder.variable_name(), "history");
+        assert!(!placeholder.optional());
+        assert_eq!(placeholder.n_messages(), MessagesPlaceholder::DEFAULT_LIMIT);
+    }
+
+    #[test]
+    fn test_tryfrom_multiple_placeholders_should_fail() {
+        let template = "{name} {history}";
+        let result = MessagesPlaceholder::try_from(template);
+
+        assert!(result.is_err());
+        if let Err(e) = result {
+            match e {
+                TemplateError::MalformedTemplate(msg) => {
+                    assert_eq!(
+                        msg,
+                        "Template must contain exactly one placeholder variable."
+                    );
+                }
+                _ => panic!("Expected MalformedTemplate error."),
+            }
+        } else {
+            panic!("Expected error for multiple placeholders.");
+        }
+    }
+
+    #[test]
+    fn test_tryfrom_no_placeholders_should_fail() {
+        let template = "No placeholders here";
+        let result = MessagesPlaceholder::try_from(template);
+
+        assert!(result.is_err());
+        if let Err(e) = result {
+            match e {
+                TemplateError::MalformedTemplate(msg) => {
+                    assert_eq!(
+                        msg,
+                        "Template must contain exactly one placeholder variable."
+                    );
+                }
+                _ => panic!("Expected MalformedTemplate error."),
+            }
+        } else {
+            panic!("Expected error for no placeholders.");
+        }
+    }
+
+    #[test]
+    fn test_tryfrom_empty_placeholder_should_fail() {
+        let template = "{}";
+        let result = MessagesPlaceholder::try_from(template);
+
+        assert!(result.is_err());
+        if let Err(e) = result {
+            match e {
+                TemplateError::MalformedTemplate(msg) => {
+                    assert_eq!(
+                        msg,
+                        "Template must contain exactly one placeholder variable."
+                    );
+                }
+                _ => panic!("Expected MalformedTemplate error."),
+            }
+        } else {
+            panic!("Expected error for empty placeholder.");
+        }
+    }
+
+    #[test]
+    fn test_tryfrom_valid_optional_placeholder() {
+        let template = "{history}";
+        let mut placeholder = MessagesPlaceholder::try_from(template).unwrap();
+        placeholder =
+            MessagesPlaceholder::with_options(placeholder.variable_name().to_string(), true, 50);
+
+        assert_eq!(placeholder.variable_name(), "history");
+        assert!(placeholder.optional());
+        assert_eq!(placeholder.n_messages(), 50);
     }
 }
