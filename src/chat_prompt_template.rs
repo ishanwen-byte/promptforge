@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, ops::Add, sync::Arc};
 
 use messageforge::{BaseMessage, MessageEnum};
 
@@ -84,6 +84,14 @@ impl ChatPromptTemplate {
         }
 
         Ok(result)
+    }
+}
+
+impl Add for ChatPromptTemplate {
+    type Output = ChatPromptTemplate;
+    fn add(mut self, other: ChatPromptTemplate) -> ChatPromptTemplate {
+        self.messages.extend(other.messages);
+        self
     }
 }
 
@@ -299,5 +307,91 @@ mod tests {
             "Hello, Alice. How are you on this Monday?"
         );
         assert_eq!(result[1].content(), "Today is Monday. Have a great Monday.");
+    }
+
+    #[test]
+    fn test_add_two_templates() {
+        let template1 =
+            ChatPromptTemplate::from_messages(&[(System, "You are a helpful AI bot.")]).unwrap();
+        let template2 =
+            ChatPromptTemplate::from_messages(&[(Human, "What is the weather today?")]).unwrap();
+
+        let combined_template = template1 + template2;
+
+        assert_eq!(combined_template.messages.len(), 2);
+
+        if let MessageLike::BaseMessage(message) = &combined_template.messages[0] {
+            assert_eq!(message.content(), "You are a helpful AI bot.");
+        } else {
+            panic!("Expected a BaseMessage for the system message.");
+        }
+
+        if let MessageLike::BaseMessage(message) = &combined_template.messages[1] {
+            assert_eq!(message.content(), "What is the weather today?");
+        } else {
+            panic!("Expected a BaseMessage for the human message.");
+        }
+    }
+
+    #[test]
+    fn test_add_multiple_templates() {
+        let system_template =
+            ChatPromptTemplate::from_messages(&[(System, "System message.")]).unwrap();
+        let user_template = ChatPromptTemplate::from_messages(&[(Human, "User message.")]).unwrap();
+        let ai_template = ChatPromptTemplate::from_messages(&[(Ai, "AI message.")]).unwrap();
+
+        let combined_template = system_template + user_template + ai_template;
+
+        assert_eq!(combined_template.messages.len(), 3);
+
+        if let MessageLike::BaseMessage(message) = &combined_template.messages[0] {
+            assert_eq!(message.content(), "System message.");
+        } else {
+            panic!("Expected a BaseMessage for the system message.");
+        }
+
+        if let MessageLike::BaseMessage(message) = &combined_template.messages[1] {
+            assert_eq!(message.content(), "User message.");
+        } else {
+            panic!("Expected a BaseMessage for the human message.");
+        }
+
+        if let MessageLike::BaseMessage(message) = &combined_template.messages[2] {
+            assert_eq!(message.content(), "AI message.");
+        } else {
+            panic!("Expected a BaseMessage for the AI message.");
+        }
+    }
+
+    #[test]
+    fn test_add_empty_template() {
+        let empty_template = ChatPromptTemplate::from_messages(&[]).unwrap();
+        let filled_template =
+            ChatPromptTemplate::from_messages(&[(System, "This is a system message.")]).unwrap();
+
+        let combined_template = empty_template + filled_template;
+
+        assert_eq!(combined_template.messages.len(), 1);
+        if let MessageLike::BaseMessage(message) = &combined_template.messages[0] {
+            assert_eq!(message.content(), "This is a system message.");
+        } else {
+            panic!("Expected a BaseMessage for the system message.");
+        }
+    }
+
+    #[test]
+    fn test_add_to_empty_template() {
+        let filled_template =
+            ChatPromptTemplate::from_messages(&[(System, "This is a system message.")]).unwrap();
+        let empty_template = ChatPromptTemplate::from_messages(&[]).unwrap();
+
+        let combined_template = filled_template + empty_template;
+
+        assert_eq!(combined_template.messages.len(), 1);
+        if let MessageLike::BaseMessage(message) = &combined_template.messages[0] {
+            assert_eq!(message.content(), "This is a system message.");
+        } else {
+            panic!("Expected a BaseMessage for the system message.");
+        }
     }
 }
