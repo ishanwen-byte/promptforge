@@ -40,6 +40,13 @@ impl ChatPromptTemplate {
         &self,
         variables: &HashMap<&str, &str>,
     ) -> Result<Vec<Arc<dyn BaseMessage>>, TemplateError> {
+        self.format_messages(variables)
+    }
+
+    pub fn format_messages(
+        &self,
+        variables: &HashMap<&str, &str>,
+    ) -> Result<Vec<Arc<dyn BaseMessage>>, TemplateError> {
         let mut result = Vec::new();
 
         for message_like in &self.messages {
