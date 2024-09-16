@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, fmt};
+use std::{convert::TryFrom, fmt, sync::Arc};
 
 use messageforge::{AiMessage, BaseMessage, HumanMessage, SystemMessage};
 
@@ -40,11 +40,11 @@ impl Role {
         }
     }
 
-    pub fn to_message(self, content: &str) -> Result<Box<dyn BaseMessage>, InvalidRoleError> {
+    pub fn to_message(self, content: &str) -> Result<Arc<dyn BaseMessage>, InvalidRoleError> {
         match self {
-            Role::System => Ok(Box::new(SystemMessage::new(content))),
-            Role::Human => Ok(Box::new(HumanMessage::new(content))),
-            Role::Ai => Ok(Box::new(AiMessage::new(content))),
+            Role::System => Ok(Arc::new(SystemMessage::new(content))),
+            Role::Human => Ok(Arc::new(HumanMessage::new(content))),
+            Role::Ai => Ok(Arc::new(AiMessage::new(content))),
             _ => Err(InvalidRoleError),
         }
     }

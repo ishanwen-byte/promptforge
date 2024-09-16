@@ -16,7 +16,7 @@ impl ChatPromptTemplate {
     pub fn from_messages(messages: &[(Role, &str)]) -> Result<Self, TemplateError> {
         let mut result = Vec::new();
 
-        for (role, tmpl) in messages {
+        for &(role, tmpl) in messages {
             let prompt_template = PromptTemplate::from_template(tmpl)?;
 
             match prompt_template.template_format() {
@@ -77,9 +77,10 @@ impl ChatPromptTemplate {
                     } else {
                         let formatted_message = template.format(variables.clone())?;
                         let base_message = role.to_message(&formatted_message)?;
-                        result.push(Arc::from(base_message));
+                        result.push(base_message);
                     }
                 }
+                _ => return Err(TemplateError::InvalidRoleError),
             }
         }
 

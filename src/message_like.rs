@@ -12,8 +12,8 @@ pub enum MessageLike {
 }
 
 impl MessageLike {
-    pub fn from_base_message(message: Box<dyn BaseMessage>) -> Self {
-        MessageLike::BaseMessage(Arc::from(message))
+    pub fn from_base_message(message: Arc<dyn BaseMessage>) -> Self {
+        MessageLike::BaseMessage(message)
     }
 
     pub fn from_role_prompt_template(role: Role, template: PromptTemplate) -> Self {
@@ -34,7 +34,7 @@ mod tests {
 
     #[test]
     fn test_from_base_message_human() {
-        let human_message = Box::new(HumanMessage::new("Hello, how are you?"));
+        let human_message = Arc::new(HumanMessage::new("Hello, how are you?"));
 
         let message_like = MessageLike::from_base_message(human_message);
 
@@ -48,7 +48,7 @@ mod tests {
 
     #[test]
     fn test_from_base_message_ai() {
-        let ai_message = Box::new(AiMessage::new("I am an AI."));
+        let ai_message = Arc::new(AiMessage::new("I am an AI."));
 
         let message_like = MessageLike::from_base_message(ai_message);
 
@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn test_from_base_message_system() {
-        let system_message = Box::new(SystemMessage::new("You are a helpful assistant."));
+        let system_message = Arc::new(SystemMessage::new("You are a helpful assistant."));
 
         let message_like = MessageLike::from_base_message(system_message);
 
@@ -90,7 +90,7 @@ mod tests {
 
     #[test]
     fn test_clone_message_like() {
-        let human_message = Box::new(HumanMessage::new("Hello!"));
+        let human_message = Arc::new(HumanMessage::new("Hello!"));
         let message_like = MessageLike::from_base_message(human_message);
         let cloned_message_like = message_like.clone();
 
