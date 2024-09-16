@@ -208,14 +208,10 @@ mod tests {
             {
                 "role": "human",
                 "content": "Hello, AI.",
-                "example": false,
-                "message_type": "Human"
             },
             {
                 "role": "ai",
                 "content": "Hi, how can I assist you today?",
-                "example": false,
-                "message_type": "Ai"
             }
         ])
         .to_string();
