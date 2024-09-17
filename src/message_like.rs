@@ -1,5 +1,5 @@
-use crate::prompt_template::PromptTemplate;
 use crate::role::Role;
+use crate::template::Template;
 use crate::MessagesPlaceholder;
 use messageforge::BaseMessage;
 use std::sync::Arc;
@@ -7,7 +7,7 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub enum MessageLike {
     BaseMessage(Arc<dyn BaseMessage>),
-    RolePromptTemplate(Role, Arc<PromptTemplate>),
+    RolePromptTemplate(Role, Arc<Template>),
     Placeholder(MessagesPlaceholder),
 }
 
@@ -16,7 +16,7 @@ impl MessageLike {
         MessageLike::BaseMessage(message)
     }
 
-    pub fn from_role_prompt_template(role: Role, template: PromptTemplate) -> Self {
+    pub fn from_role_prompt_template(role: Role, template: Template) -> Self {
         MessageLike::RolePromptTemplate(role, Arc::new(template))
     }
 
@@ -76,7 +76,7 @@ mod tests {
 
     #[test]
     fn test_from_role_prompt_template() {
-        let template = PromptTemplate::new("Hello, {name}!").unwrap();
+        let template = Template::new("Hello, {name}!").unwrap();
         let message_like = MessageLike::from_role_prompt_template(Role::Human, template);
 
         if let MessageLike::RolePromptTemplate(role, tmpl) = message_like {
@@ -100,7 +100,7 @@ mod tests {
             panic!("Expected MessageLike::BaseMessage variant.");
         }
 
-        let template = PromptTemplate::new("Hello, {name}!").unwrap();
+        let template = Template::new("Hello, {name}!").unwrap();
         let message_like = MessageLike::from_role_prompt_template(Role::Ai, template);
         let cloned_message_like = message_like.clone();
 

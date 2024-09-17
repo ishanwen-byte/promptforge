@@ -14,11 +14,11 @@ pub use template_format::TemplateFormat;
 
 pub mod vars;
 
-pub mod template;
-pub use template::Templatable;
+pub mod templatable;
+pub use templatable::Templatable;
 
-pub mod prompt_template;
-pub use prompt_template::PromptTemplate;
+pub mod template;
+pub use template::Template;
 
 pub mod chat_prompt_template;
 pub use chat_prompt_template::ChatPromptTemplate;

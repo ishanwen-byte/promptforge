@@ -4,8 +4,8 @@ use std::{collections::HashMap, ops::Add, sync::Arc};
 use messageforge::{BaseMessage, MessageEnum};
 
 use crate::{
-    message_like::MessageLike, MessagesPlaceholder, PromptTemplate, Role, Templatable,
-    TemplateError, TemplateFormat,
+    message_like::MessageLike, MessagesPlaceholder, Role, Templatable, Template, TemplateError,
+    TemplateFormat,
 };
 
 #[derive(Debug, Clone)]
@@ -24,7 +24,7 @@ impl ChatPromptTemplate {
                 continue;
             }
 
-            let prompt_template = PromptTemplate::from_template(tmpl)?;
+            let prompt_template = Template::from_template(tmpl)?;
 
             match prompt_template.template_format() {
                 TemplateFormat::PlainText => {
