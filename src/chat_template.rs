@@ -66,6 +66,7 @@ impl ChatTemplate {
                     MessageLike::RolePromptTemplate(role, template) => {
                         let formatted_message = template
                             .format(variables.clone())
+                            .await
                             .map_err(|e| TemplateError::MalformedTemplate(e.to_string()))?;
                         let base_message = role
                             .to_message(&formatted_message)
