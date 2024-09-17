@@ -186,6 +186,7 @@
 use std::collections::HashMap;
 
 use handlebars::Handlebars;
+use serde::{Deserialize, Serialize};
 
 use crate::placeholder::extract_variables;
 use crate::templatable::Templatable;
@@ -193,11 +194,12 @@ use crate::template_format::{
     detect_template, merge_vars, validate_template, TemplateError, TemplateFormat,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Template {
     template: String,
     template_format: TemplateFormat,
     input_variables: Vec<String>,
+    #[serde(skip, default)]
     handlebars: Option<Handlebars<'static>>,
     partials: HashMap<String, String>,
 }

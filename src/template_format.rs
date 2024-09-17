@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use handlebars::RenderError;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     braces::{
@@ -58,7 +59,7 @@ impl TemplateError {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum TemplateFormat {
     PlainText,
     FmtString,
