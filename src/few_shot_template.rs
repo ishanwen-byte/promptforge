@@ -1,14 +1,13 @@
 use crate::template_format::TemplateError;
 use crate::Templatable;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct FewShotTemplate<T: Templatable + Send + Sync> {
-    examples: Vec<Arc<T>>,
+    examples: Vec<T>,
     example_separator: String,
-    prefix: Option<Arc<T>>,
-    suffix: Option<Arc<T>>,
+    prefix: Option<T>,
+    suffix: Option<T>,
 }
 
 impl<T: Templatable + Send + Sync> Default for FewShotTemplate<T> {
@@ -25,7 +24,7 @@ impl<T: Templatable + Send + Sync> Default for FewShotTemplate<T> {
 impl<T: Templatable + Send + Sync> FewShotTemplate<T> {
     pub const DEFAULT_EXAMPLE_SEPARATOR: &'static str = "\n\n";
 
-    pub fn new(examples: Vec<Arc<T>>) -> Self {
+    pub fn new(examples: Vec<T>) -> Self {
         Self {
             examples,
             ..Default::default()
@@ -33,7 +32,7 @@ impl<T: Templatable + Send + Sync> FewShotTemplate<T> {
     }
 
     pub fn with_options(
-        examples: Vec<Arc<T>>,
+        examples: Vec<T>,
         prefix: Option<T>,
         suffix: Option<T>,
         example_separator: impl Into<String>,
@@ -41,8 +40,8 @@ impl<T: Templatable + Send + Sync> FewShotTemplate<T> {
         FewShotTemplate {
             examples,
             example_separator: example_separator.into(),
-            prefix: prefix.map(Arc::new),
-            suffix: suffix.map(Arc::new),
+            prefix,
+            suffix,
         }
     }
 
@@ -92,10 +91,10 @@ impl<T: Templatable + Send + Sync> FewShotTemplate<T> {
 
 #[derive(Debug)]
 pub struct FewShotTemplateBuilder<T: Templatable + Send + Sync> {
+    examples: Vec<T>,
+    example_separator: String,
     prefix: Option<T>,
     suffix: Option<T>,
-    example_separator: String,
-    examples: Vec<Arc<T>>,
 }
 
 impl<T: Templatable + Send + Sync> Default for FewShotTemplateBuilder<T> {
@@ -130,7 +129,7 @@ impl<T: Templatable + Send + Sync> FewShotTemplateBuilder<T> {
     }
 
     pub fn example(mut self, example: T) -> Self {
-        self.examples.push(Arc::new(example));
+        self.examples.push(example);
         self
     }
 
@@ -139,17 +138,17 @@ impl<T: Templatable + Send + Sync> FewShotTemplateBuilder<T> {
         I: IntoIterator<Item = T>,
     {
         for example in examples {
-            self.examples.push(Arc::new(example));
+            self.examples.push(example);
         }
         self
     }
 
     pub fn build(self) -> FewShotTemplate<T> {
         FewShotTemplate {
-            prefix: self.prefix.map(Arc::new),
-            suffix: self.suffix.map(Arc::new),
-            example_separator: self.example_separator,
             examples: self.examples,
+            example_separator: self.example_separator,
+            prefix: self.prefix,
+            suffix: self.suffix,
         }
     }
 }
