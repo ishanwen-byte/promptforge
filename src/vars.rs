@@ -1,5 +1,5 @@
 #[macro_export]
-macro_rules! prompt_vars {
+macro_rules! vars {
     () => {
         std::collections::HashMap::new()
     };
@@ -25,20 +25,20 @@ mod tests {
 
     #[test]
     fn test_empty_prompt_vars() {
-        let vars: HashMap<&str, &str> = prompt_vars!();
+        let vars: HashMap<&str, &str> = vars!();
         assert!(vars.is_empty(), "The hashmap should be empty.");
     }
 
     #[test]
     fn test_single_prompt_var() {
-        let vars = prompt_vars!(name = "tom");
+        let vars = vars!(name = "tom");
         assert_eq!(vars.len(), 1);
         assert_eq!(vars.get("name"), Some(&"tom"));
     }
 
     #[test]
     fn test_multiple_prompt_vars() {
-        let vars = prompt_vars!(name = "tom", adjective = "funny", content = "chickens");
+        let vars = vars!(name = "tom", adjective = "funny", content = "chickens");
         assert_eq!(vars.len(), 3);
         assert_eq!(vars.get("name"), Some(&"tom"));
         assert_eq!(vars.get("adjective"), Some(&"funny"));
@@ -47,7 +47,7 @@ mod tests {
 
     #[test]
     fn test_trailing_comma() {
-        let vars = prompt_vars!(name = "tom", adjective = "funny", content = "chickens",);
+        let vars = vars!(name = "tom", adjective = "funny", content = "chickens",);
         assert_eq!(vars.len(), 3);
         assert_eq!(vars.get("name"), Some(&"tom"));
         assert_eq!(vars.get("adjective"), Some(&"funny"));
@@ -56,7 +56,7 @@ mod tests {
 
     #[test]
     fn test_overwriting_keys() {
-        let vars = prompt_vars!(name = "tom", name = "jerry");
+        let vars = vars!(name = "tom", name = "jerry");
         assert_eq!(vars.len(), 1);
         assert_eq!(vars.get("name"), Some(&"jerry"));
     }

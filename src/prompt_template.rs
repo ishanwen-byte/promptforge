@@ -9,12 +9,12 @@
 //! ### FmtString Template
 //!
 //! ```rust
-//! use promptforge::{PromptTemplate, TemplateError, prompt_vars};
+//! use promptforge::{PromptTemplate, TemplateError, vars};
 //! use promptforge::Template;
 //!
 //! fn main() -> Result<(), TemplateError> {
 //!     let tmpl = PromptTemplate::new("Hello, {name}! Your order number is {order_id}.")?;
-//!     let variables = prompt_vars!(name = "Alice", order_id = "12345");
+//!     let variables = vars!(name = "Alice", order_id = "12345");
 //!     let result = tmpl.format(variables)?;
 //!     
 //!     println!("{}", result);  // Outputs: Hello, Alice! Your order number is 12345.
@@ -26,11 +26,11 @@
 //!
 //! ```rust
 //! use promptforge::Template;
-//! use promptforge::{PromptTemplate, TemplateError, prompt_vars};
+//! use promptforge::{PromptTemplate, TemplateError, vars};
 //!
 //! fn main() -> Result<(), TemplateError> {
 //!     let tmpl = PromptTemplate::new("Hello, {{name}}! Your favorite color is {{color}}.")?;
-//!     let variables = prompt_vars!(name = "Bob", color = "blue");
+//!     let variables = vars!(name = "Bob", color = "blue");
 //!     let result = tmpl.format(variables)?;
 //!     
 //!     println!("{}", result);  // Outputs: Hello, Bob! Your favorite color is blue.
@@ -42,11 +42,11 @@
 //!
 //! ```rust
 //! use promptforge::Template;
-//! use promptforge::{PromptTemplate, TemplateError, prompt_vars};
+//! use promptforge::{PromptTemplate, TemplateError, vars};
 //!
 //! fn main() -> Result<(), TemplateError> {
 //!     let tmpl = PromptTemplate::new("Hi, {name}! Please confirm your email: {email}.")?;
-//!     let variables = prompt_vars!(name = "Charlie");
+//!     let variables = vars!(name = "Charlie");
 //!     let result = tmpl.format(variables);
 //!     
 //!     assert!(result.is_err());
@@ -327,7 +327,7 @@ impl Template for PromptTemplate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prompt_vars;
+    use crate::vars;
 
     #[test]
     fn test_prompt_template_new_success() {
@@ -374,32 +374,32 @@ mod tests {
     #[test]
     fn test_fmtstring_formatting() {
         let tmpl = PromptTemplate::new("Hello, {name}!").unwrap();
-        let variables = prompt_vars!(name = "John");
+        let variables = vars!(name = "John");
         let formatted = tmpl.format(variables).unwrap();
         assert_eq!(formatted, "Hello, John!");
 
         let tmpl = PromptTemplate::new("Hi {name}, you are {age} years old!").unwrap();
-        let variables = prompt_vars!(name = "Alice", age = "30");
+        let variables = vars!(name = "Alice", age = "30");
         let formatted = tmpl.format(variables).unwrap();
         assert_eq!(formatted, "Hi Alice, you are 30 years old!");
 
         let tmpl = PromptTemplate::new("Hello World!").unwrap();
-        let variables = prompt_vars!();
+        let variables = vars!();
         let formatted = tmpl.format(variables).unwrap();
         assert_eq!(formatted, "Hello World!");
 
         let tmpl = PromptTemplate::new("Goodbye, {name}!").unwrap();
-        let variables = prompt_vars!(name = "John", extra = "data");
+        let variables = vars!(name = "John", extra = "data");
         let formatted = tmpl.format(variables).unwrap();
         assert_eq!(formatted, "Goodbye, John!");
 
         let tmpl = PromptTemplate::new("Goodbye, {name}!").unwrap();
-        let variables = prompt_vars!(wrong_name = "John");
+        let variables = vars!(wrong_name = "John");
         let result = tmpl.format(variables);
         assert!(result.is_err());
 
         let tmpl = PromptTemplate::new("Hi {name}, you are {age} years old!").unwrap();
-        let variables = prompt_vars!(name = "Alice");
+        let variables = vars!(name = "Alice");
         let result = tmpl.format(variables).unwrap_err();
         assert!(matches!(result, TemplateError::MissingVariable(_)));
     }
@@ -407,23 +407,23 @@ mod tests {
     #[test]
     fn test_format_mustache_success() {
         let tmpl = PromptTemplate::new("Hello, {{name}}!").unwrap();
-        let variables = prompt_vars!(name = "John");
+        let variables = vars!(name = "John");
         let result = tmpl.format(variables).unwrap();
         assert_eq!(result, "Hello, John!");
 
-        let variables = prompt_vars!(name = "John", extra = "data");
+        let variables = vars!(name = "John", extra = "data");
         let result = tmpl.format(variables).unwrap();
         assert_eq!(result, "Hello, John!");
 
         let tmpl_multiple_vars =
             PromptTemplate::new("Hello, {{name}}! You are {{adjective}}.").unwrap();
-        let variables = prompt_vars!(name = "John", adjective = "awesome");
+        let variables = vars!(name = "John", adjective = "awesome");
         let result = tmpl_multiple_vars.format(variables).unwrap();
         assert_eq!(result, "Hello, John! You are awesome.");
 
         let tmpl_multiple_instances =
             PromptTemplate::new("{{greeting}}, {{name}}! {{greeting}}, again!").unwrap();
-        let variables = prompt_vars!(greeting = "Hello", name = "John");
+        let variables = vars!(greeting = "Hello", name = "John");
         let result = tmpl_multiple_instances.format(variables).unwrap();
         assert_eq!(result, "Hello, John! Hello, again!");
     }
@@ -431,7 +431,7 @@ mod tests {
     #[test]
     fn test_format_mustache_error() {
         let tmpl_missing_var = PromptTemplate::new("Hello, {{name}}!").unwrap();
-        let variables = prompt_vars!(adjective = "cool");
+        let variables = vars!(adjective = "cool");
         let err = tmpl_missing_var.format(variables).unwrap_err();
         assert!(matches!(err, TemplateError::MissingVariable(_)));
     }
@@ -439,27 +439,27 @@ mod tests {
     #[test]
     fn test_format_plaintext() {
         let tmpl = PromptTemplate::new("Hello, world!").unwrap();
-        let variables = prompt_vars!();
+        let variables = vars!();
         let result = tmpl.format(variables).unwrap();
         assert_eq!(result, "Hello, world!");
 
         let tmpl = PromptTemplate::new("Welcome to the Rust world!").unwrap();
-        let variables = prompt_vars!(name = "John", adjective = "awesome");
+        let variables = vars!(name = "John", adjective = "awesome");
         let result = tmpl.format(variables).unwrap();
         assert_eq!(result, "Welcome to the Rust world!");
 
         let tmpl_no_placeholders = PromptTemplate::new("No placeholders here").unwrap();
-        let variables = prompt_vars!(name = "ignored");
+        let variables = vars!(name = "ignored");
         let result = tmpl_no_placeholders.format(variables).unwrap();
         assert_eq!(result, "No placeholders here");
 
         let tmpl_extra_spaces = PromptTemplate::new("  Just some text   ").unwrap();
-        let variables = prompt_vars!();
+        let variables = vars!();
         let result = tmpl_extra_spaces.format(variables).unwrap();
         assert_eq!(result, "  Just some text   ");
 
         let tmpl_with_newlines = PromptTemplate::new("Text with\nmultiple lines\n").unwrap();
-        let result = tmpl_with_newlines.format(prompt_vars!()).unwrap();
+        let result = tmpl_with_newlines.format(vars!()).unwrap();
         assert_eq!(result, "Text with\nmultiple lines\n");
     }
 
@@ -473,12 +473,12 @@ mod tests {
         assert_eq!(partial_vars.get("name"), Some(&"Jill".to_string()));
 
         // Test formatting with partials
-        let variables = prompt_vars!();
+        let variables = vars!();
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Jill");
 
         // Test formatting with runtime vars that override partials
-        let variables = prompt_vars!(name = "Alice");
+        let variables = vars!(name = "Alice");
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Alice");
     }
@@ -494,12 +494,12 @@ mod tests {
         assert_eq!(partial_vars.get("mood"), Some(&"happy".to_string()));
 
         // Test formatting using partials
-        let variables = prompt_vars!();
+        let variables = vars!();
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Jill. You are feeling happy.");
 
         // Test overriding a partial with runtime variable
-        let variables = prompt_vars!(mood = "excited");
+        let variables = vars!(mood = "excited");
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Jill. You are feeling excited.");
     }
@@ -514,11 +514,11 @@ mod tests {
         assert!(partial_vars.is_empty());
 
         // Test formatting after clearing partials
-        let variables = prompt_vars!(name = "John");
+        let variables = vars!(name = "John");
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, John.");
 
-        let variables = prompt_vars!();
+        let variables = vars!();
         let result = template.format(variables);
         assert!(result.is_err());
     }
@@ -543,11 +543,11 @@ mod tests {
         assert!(template.partial_vars().is_empty());
 
         // Test formatting with cleared partials
-        let variables = prompt_vars!(name = "Charlie");
+        let variables = vars!(name = "Charlie");
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Charlie!");
 
-        let variables = prompt_vars!();
+        let variables = vars!();
         let result = template.format(variables);
         assert!(result.is_err());
     }
@@ -559,21 +559,21 @@ mod tests {
         template.partial("name", "Alice").partial("mood", "calm");
 
         // No runtime variables, should use partials
-        let variables = prompt_vars!();
+        let variables = vars!();
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Alice. You are feeling calm.");
 
-        let variables = prompt_vars!(mood = "excited");
+        let variables = vars!(mood = "excited");
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Alice. You are feeling excited.");
 
         // Runtime variable overrides name
-        let variables = prompt_vars!(name = "Bob");
+        let variables = vars!(name = "Bob");
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Bob. You are feeling calm.");
 
         // Runtime variables override both
-        let variables = prompt_vars!(name = "Charlie", mood = "joyful");
+        let variables = vars!(name = "Charlie", mood = "joyful");
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Charlie. You are feeling joyful.");
     }
@@ -585,12 +585,12 @@ mod tests {
         template.partial("name", "Alice");
 
         // Partial variable should be filled, but mood is missing
-        let variables = prompt_vars!();
+        let variables = vars!();
         let result = template.format(variables);
         assert!(result.is_err());
 
         // Runtime variable fills the missing mood
-        let variables = prompt_vars!(mood = "happy");
+        let variables = vars!(mood = "happy");
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Alice. You are feeling happy.");
     }
@@ -602,7 +602,7 @@ mod tests {
         template.partial("name", "Alice").partial("mood", "calm");
 
         // Both partial and runtime variable have same key
-        let variables = prompt_vars!(name = "Bob", mood = "excited");
+        let variables = vars!(name = "Bob", mood = "excited");
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Bob. You are feeling excited.");
     }

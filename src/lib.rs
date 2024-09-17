@@ -12,7 +12,7 @@ pub mod template_format;
 pub use template_format::TemplateError;
 pub use template_format::TemplateFormat;
 
-pub mod prompt_vars;
+pub mod vars;
 
 pub mod template;
 pub use template::Template;

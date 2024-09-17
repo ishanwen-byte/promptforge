@@ -135,7 +135,7 @@ mod tests {
     use super::*;
     use crate::message_like::MessageLike;
     use crate::Role::{Ai, Human, Placeholder, System};
-    use crate::{chat_templates, prompt_vars};
+    use crate::{chat_templates, vars};
 
     #[tokio::test]
     async fn test_from_messages_plaintext() {
@@ -243,7 +243,7 @@ mod tests {
         let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
-        let variables = prompt_vars!(name = "Alice");
+        let variables = vars!(name = "Alice");
         let result = chat_prompt.invoke(&variables).await.unwrap();
 
         assert_eq!(result.len(), 2);
@@ -274,7 +274,7 @@ mod tests {
         let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
         assert_eq!(chat_prompt.messages.len(), 3);
 
-        let variables = prompt_vars!(history = history_json.as_str(), name = "Bob");
+        let variables = vars!(history = history_json.as_str(), name = "Bob");
         let result = chat_prompt.invoke(&variables).await.unwrap();
 
         assert_eq!(result.len(), 4);
@@ -295,7 +295,7 @@ mod tests {
         );
 
         let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
-        let variables = prompt_vars!(history = invalid_history_json, name = "Bob");
+        let variables = vars!(history = invalid_history_json, name = "Bob");
 
         let result = chat_prompt.invoke(&variables).await;
         assert!(result.is_err());
@@ -316,7 +316,7 @@ mod tests {
         );
 
         let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
-        let variables = prompt_vars!();
+        let variables = vars!();
 
         let result = chat_prompt.invoke(&variables).await;
         assert!(result.is_err());
@@ -330,7 +330,7 @@ mod tests {
         );
 
         let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
-        let variables = prompt_vars!(name = "Alice", day = "Monday");
+        let variables = vars!(name = "Alice", day = "Monday");
 
         let result = chat_prompt.invoke(&variables).await.unwrap();
 
