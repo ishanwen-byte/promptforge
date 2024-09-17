@@ -33,3 +33,6 @@ pub use role::Role;
 
 pub mod messages_placeholder;
 pub use messages_placeholder::MessagesPlaceholder;
+
+pub mod few_shot_template;
+pub use few_shot_template::FewShotTemplate;
