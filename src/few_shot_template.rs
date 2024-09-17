@@ -1,28 +1,28 @@
+use crate::template_format::TemplateError;
 use crate::Templatable;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct FewShotTemplate<T: Templatable + Send + Sync> {
-    prefix: String,
-    suffix: String,
-    example_separator: String,
     examples: Vec<Arc<T>>,
+    example_separator: String,
+    prefix: Option<Arc<T>>,
+    suffix: Option<Arc<T>>,
 }
 
 impl<T: Templatable + Send + Sync> Default for FewShotTemplate<T> {
     fn default() -> Self {
         Self {
-            prefix: Self::DEFAULT_PREFIX.to_string(),
-            suffix: Self::DEFAULT_SUFFIX.to_string(),
-            example_separator: Self::DEFAULT_EXAMPLE_SEPARATOR.to_string(),
             examples: Vec::new(),
+            example_separator: Self::DEFAULT_EXAMPLE_SEPARATOR.to_string(),
+            prefix: None,
+            suffix: None,
         }
     }
 }
 
 impl<T: Templatable + Send + Sync> FewShotTemplate<T> {
-    pub const DEFAULT_PREFIX: &'static str = "";
-    pub const DEFAULT_SUFFIX: &'static str = "";
     pub const DEFAULT_EXAMPLE_SEPARATOR: &'static str = "\n\n";
 
     pub fn new(examples: Vec<Arc<T>>) -> Self {
@@ -34,27 +34,66 @@ impl<T: Templatable + Send + Sync> FewShotTemplate<T> {
 
     pub fn with_options(
         examples: Vec<Arc<T>>,
-        prefix: impl Into<String>,
-        suffix: impl Into<String>,
+        prefix: Option<T>,
+        suffix: Option<T>,
         example_separator: impl Into<String>,
     ) -> Self {
         FewShotTemplate {
-            prefix: prefix.into(),
-            suffix: suffix.into(),
-            example_separator: example_separator.into(),
             examples,
+            example_separator: example_separator.into(),
+            prefix: prefix.map(Arc::new),
+            suffix: suffix.map(Arc::new),
         }
     }
 
     pub fn builder() -> FewShotTemplateBuilder<T> {
         FewShotTemplateBuilder::new()
     }
+
+    pub async fn format(&self, variables: HashMap<&str, &str>) -> Result<String, TemplateError> {
+        let prefix_str = if let Some(ref prefix_template) = self.prefix {
+            prefix_template.format(variables.clone()).await?
+        } else {
+            String::new()
+        };
+
+        let mut formatted_examples = Vec::new();
+
+        for example in &self.examples {
+            let formatted_example = example.format(variables.clone()).await?;
+            formatted_examples.push(formatted_example);
+        }
+
+        let examples_str = formatted_examples.join(&self.example_separator);
+
+        let suffix_str = if let Some(ref suffix_template) = self.suffix {
+            suffix_template.format(variables.clone()).await?
+        } else {
+            String::new()
+        };
+
+        let mut result_parts = Vec::new();
+
+        if !prefix_str.is_empty() {
+            result_parts.push(prefix_str);
+        }
+        if !examples_str.is_empty() {
+            result_parts.push(examples_str);
+        }
+        if !suffix_str.is_empty() {
+            result_parts.push(suffix_str);
+        }
+
+        let result = result_parts.join(&self.example_separator);
+
+        Ok(result)
+    }
 }
 
 #[derive(Debug)]
 pub struct FewShotTemplateBuilder<T: Templatable + Send + Sync> {
-    prefix: String,
-    suffix: String,
+    prefix: Option<T>,
+    suffix: Option<T>,
     example_separator: String,
     examples: Vec<Arc<T>>,
 }
@@ -62,8 +101,8 @@ pub struct FewShotTemplateBuilder<T: Templatable + Send + Sync> {
 impl<T: Templatable + Send + Sync> Default for FewShotTemplateBuilder<T> {
     fn default() -> Self {
         Self {
-            prefix: FewShotTemplate::<T>::DEFAULT_PREFIX.to_string(),
-            suffix: FewShotTemplate::<T>::DEFAULT_SUFFIX.to_string(),
+            prefix: None,
+            suffix: None,
             example_separator: FewShotTemplate::<T>::DEFAULT_EXAMPLE_SEPARATOR.to_string(),
             examples: Vec::new(),
         }
@@ -75,13 +114,13 @@ impl<T: Templatable + Send + Sync> FewShotTemplateBuilder<T> {
         Self::default()
     }
 
-    pub fn prefix(mut self, prefix: impl Into<String>) -> Self {
-        self.prefix = prefix.into();
+    pub fn prefix(mut self, prefix: T) -> Self {
+        self.prefix = Some(prefix);
         self
     }
 
-    pub fn suffix(mut self, suffix: impl Into<String>) -> Self {
-        self.suffix = suffix.into();
+    pub fn suffix(mut self, suffix: T) -> Self {
+        self.suffix = Some(suffix);
         self
     }
 
@@ -90,197 +129,448 @@ impl<T: Templatable + Send + Sync> FewShotTemplateBuilder<T> {
         self
     }
 
-    pub fn add_example(mut self, example: T) -> Self {
+    pub fn example(mut self, example: T) -> Self {
         self.examples.push(Arc::new(example));
         self
     }
 
+    pub fn add_examples<I>(mut self, examples: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        for example in examples {
+            self.examples.push(Arc::new(example));
+        }
+        self
+    }
+
     pub fn build(self) -> FewShotTemplate<T> {
-        FewShotTemplate::with_options(
-            self.examples,
-            self.prefix,
-            self.suffix,
-            self.example_separator,
-        )
+        FewShotTemplate {
+            prefix: self.prefix.map(Arc::new),
+            suffix: self.suffix.map(Arc::new),
+            example_separator: self.example_separator,
+            examples: self.examples,
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::template_format::TemplateError;
+    use crate::vars;
+    use crate::Templatable;
     use crate::Template;
-    use std::sync::Arc;
 
     #[tokio::test]
-    async fn test_few_shot_template_default() {
-        let few_shot_template = FewShotTemplate::<Template>::default();
+    async fn test_few_shot_template_with_prefix_suffix_and_examples() {
+        let prefix_template = Template::new("This is the prefix. Topic: {topic}").unwrap();
+        let example_template1 = Template::new("Q: {question1}\nA: {answer1}").unwrap();
+        let example_template2 = Template::new("Q: {question2}\nA: {answer2}").unwrap();
+        let suffix_template =
+            Template::new("This is the suffix. Remember to think about {topic}.").unwrap();
 
-        assert_eq!(few_shot_template.prefix, "");
-        assert_eq!(few_shot_template.suffix, "");
-        assert_eq!(few_shot_template.example_separator, "\n\n");
-        assert!(few_shot_template.examples.is_empty());
+        let few_shot_template = FewShotTemplate::builder()
+            .prefix(prefix_template)
+            .example(example_template1)
+            .example(example_template2)
+            .suffix(suffix_template)
+            .example_separator("\n---\n")
+            .build();
+
+        let variables = vars!(
+            topic = "Science",
+            question1 = "What is the speed of light?",
+            answer1 = "Approximately 299,792 kilometers per second.",
+            question2 = "What is the gravitational constant?",
+            answer2 = "Approximately 6.674×10^-11 N·(m/kg)^2.",
+        );
+
+        let formatted_output = few_shot_template.format(variables).await.unwrap();
+        let expected_output = "\
+This is the prefix. Topic: Science
+---
+Q: What is the speed of light?
+A: Approximately 299,792 kilometers per second.
+---
+Q: What is the gravitational constant?
+A: Approximately 6.674×10^-11 N·(m/kg)^2.
+---
+This is the suffix. Remember to think about Science.";
+
+        assert_eq!(formatted_output, expected_output);
     }
 
     #[tokio::test]
-    async fn test_few_shot_template_new() {
-        let example_template = Template::new("Hello, {name}!").unwrap();
-        let example_arc = Arc::new(example_template);
+    async fn test_few_shot_template_without_prefix_and_suffix() {
+        let example_template1 = Template::new("First example with {variable}.").unwrap();
+        let example_template2 = Template::new("Second example with {variable}.").unwrap();
 
-        let few_shot_template = FewShotTemplate::new(vec![example_arc.clone()]);
+        let few_shot_template = FewShotTemplate::builder()
+            .example(example_template1)
+            .example(example_template2)
+            .example_separator("\n***\n")
+            .build();
 
-        assert_eq!(few_shot_template.prefix, "");
-        assert_eq!(few_shot_template.suffix, "");
-        assert_eq!(few_shot_template.example_separator, "\n\n");
-        assert_eq!(few_shot_template.examples.len(), 1);
-        assert!(Arc::ptr_eq(&few_shot_template.examples[0], &example_arc));
+        let variables = vars!(variable = "test data",);
+        let formatted_output = few_shot_template.format(variables).await.unwrap();
+        let expected_output = "\
+First example with test data.
+***
+Second example with test data.";
+
+        assert_eq!(formatted_output, expected_output);
     }
 
     #[tokio::test]
-    async fn test_few_shot_template_with_options() {
-        let example_template1 = Template::new("Hi, {name}!").unwrap();
-        let example_template2 = Template::new("Welcome, {name}!").unwrap();
+    async fn test_few_shot_template_with_empty_examples() {
+        let prefix_template = Template::new("This is the prefix.").unwrap();
+        let suffix_template = Template::new("This is the suffix.").unwrap();
+
+        let few_shot_template = FewShotTemplate::builder()
+            .prefix(prefix_template)
+            .suffix(suffix_template)
+            .build();
+
+        let variables = vars!();
+        let formatted_output = few_shot_template.format(variables).await.unwrap();
+
+        let expected_output = "\
+This is the prefix.
+
+This is the suffix.";
+
+        assert_eq!(formatted_output, expected_output);
+    }
+
+    #[tokio::test]
+    async fn test_few_shot_template_with_missing_variables() {
+        let prefix_template = Template::new("Prefix with {var1}").unwrap();
+        let example_template = Template::new("Example with {var2}").unwrap();
+        let suffix_template = Template::new("Suffix with {var3}").unwrap();
+
+        let few_shot_template = FewShotTemplate::builder()
+            .prefix(prefix_template)
+            .example(example_template)
+            .suffix(suffix_template)
+            .build();
+
+        let variables = vars!(
+            var1 = "value1",
+            // var2 is missing
+            var3 = "value3",
+        );
+
+        let result = few_shot_template.format(variables).await;
+
+        // Expect an error due to missing 'var2'
+        assert!(result.is_err());
+        if let Err(TemplateError::MissingVariable(msg)) = result {
+            assert!(msg.contains("var2"));
+        } else {
+            panic!("Expected MissingVariable error");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_few_shot_template_with_partial_variables() {
+        let prefix_template = Template::new("Welcome, {user}!").unwrap();
+        let example_template = Template::new("Your role is {role}.").unwrap();
+        let suffix_template = Template::new("Goodbye, {user}.").unwrap();
+
+        let few_shot_template = FewShotTemplate::builder()
+            .prefix(prefix_template)
+            .example(example_template)
+            .suffix(suffix_template)
+            .build();
+
+        let variables = vars!(user = "Alice",);
+        let result = few_shot_template.format(variables).await;
+
+        assert!(result.is_err());
+        if let Err(TemplateError::MissingVariable(msg)) = result {
+            assert!(msg.contains("role"));
+        } else {
+            panic!("Expected MissingVariable error");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_few_shot_template_with_custom_example_separator() {
+        let prefix_template = Template::new("Start").unwrap();
+        let example_template1 = Template::new("Example One").unwrap();
+        let example_template2 = Template::new("Example Two").unwrap();
+        let suffix_template = Template::new("End").unwrap();
+
+        let few_shot_template = FewShotTemplate::builder()
+            .prefix(prefix_template)
+            .example(example_template1)
+            .example(example_template2)
+            .suffix(suffix_template)
+            .example_separator("\n===\n")
+            .build();
+
+        let variables = vars!();
+        let formatted_output = few_shot_template.format(variables).await.unwrap();
+
+        let expected_output = "\
+Start
+===
+Example One
+===
+Example Two
+===
+End";
+
+        assert_eq!(formatted_output, expected_output);
+    }
+
+    #[tokio::test]
+    async fn test_few_shot_template_with_plain_text_templates() {
+        let prefix_template = Template::new("Plain prefix").unwrap();
+        let example_template = Template::new("Plain example").unwrap();
+        let suffix_template = Template::new("Plain suffix").unwrap();
+
+        let few_shot_template = FewShotTemplate::builder()
+            .prefix(prefix_template)
+            .example(example_template)
+            .suffix(suffix_template)
+            .build();
+
+        let variables = vars!();
+        let formatted_output = few_shot_template.format(variables).await.unwrap();
+
+        let expected_output = "\
+Plain prefix
+
+Plain example
+
+Plain suffix";
+
+        assert_eq!(formatted_output, expected_output);
+    }
+
+    #[tokio::test]
+    async fn test_few_shot_template_with_multiple_examples() {
+        let prefix_template = Template::new("Examples Start").unwrap();
+        let mut examples = Vec::new();
+
+        for i in 1..=5 {
+            let tmpl_str = format!("Example number {}", i);
+            let tmpl = Template::new(&tmpl_str).unwrap();
+            examples.push(tmpl);
+        }
+
+        let suffix_template = Template::new("Examples End").unwrap();
+        let mut builder = FewShotTemplate::builder();
+        builder = builder.prefix(prefix_template);
+        for example in examples {
+            builder = builder.example(example);
+        }
+        builder = builder.suffix(suffix_template);
+        let few_shot_template = builder.build();
+        let variables = vars!();
+        let formatted_output = few_shot_template.format(variables).await.unwrap();
+
+        let expected_output = "\
+Examples Start
+
+Example number 1
+
+Example number 2
+
+Example number 3
+
+Example number 4
+
+Example number 5
+
+Examples End";
+
+        assert_eq!(formatted_output, expected_output);
+    }
+
+    #[tokio::test]
+    async fn test_few_shot_template_with_repeated_variables() {
+        let prefix_template = Template::new("Start {var}").unwrap();
+        let example_template = Template::new("Example {var}").unwrap();
+        let suffix_template = Template::new("End {var}").unwrap();
+
+        let few_shot_template = FewShotTemplate::builder()
+            .prefix(prefix_template)
+            .example(example_template.clone())
+            .example(example_template)
+            .suffix(suffix_template)
+            .build();
+
+        let variables = vars!(var = "Value",);
+        let formatted_output = few_shot_template.format(variables).await.unwrap();
+
+        let expected_output = "\
+Start Value
+
+Example Value
+
+Example Value
+
+End Value";
+
+        assert_eq!(formatted_output, expected_output);
+    }
+
+    #[tokio::test]
+    async fn test_few_shot_template_with_no_examples() {
+        let prefix_template = Template::new("Only Prefix").unwrap();
+        let suffix_template = Template::new("Only Suffix").unwrap();
+
+        let few_shot_template = FewShotTemplate::builder()
+            .prefix(prefix_template)
+            .suffix(suffix_template)
+            .build();
+
+        let variables = vars!();
+        let formatted_output = few_shot_template.format(variables).await.unwrap();
+
+        let expected_output = "\
+Only Prefix
+
+Only Suffix";
+
+        assert_eq!(formatted_output, expected_output);
+    }
+
+    #[tokio::test]
+    async fn test_few_shot_template_langchain_example() {
+        use crate::vars;
+        use crate::Template;
 
         let examples = vec![
-            Arc::new(example_template1.clone()),
-            Arc::new(example_template2.clone()),
+            vars!(
+                question = "Who lived longer, Muhammad Ali or Alan Turing?",
+                answer = r#"Are follow up questions needed here: Yes.
+Follow up: How old was Muhammad Ali when he died?
+Intermediate answer: Muhammad Ali was 74 years old when he died.
+Follow up: How old was Alan Turing when he died?
+Intermediate answer: Alan Turing was 41 years old when he died.
+So the final answer is: Muhammad Ali
+"#
+            ),
+            vars!(
+                question = "When was the founder of craigslist born?",
+                answer = r#"Are follow up questions needed here: Yes.
+Follow up: Who was the founder of craigslist?
+Intermediate answer: Craigslist was founded by Craig Newmark.
+Follow up: When was Craig Newmark born?
+Intermediate answer: Craig Newmark was born on December 6, 1952.
+So the final answer is: December 6, 1952
+"#
+            ),
+            vars!(
+                question = "Who was the maternal grandfather of George Washington?",
+                answer = r#"Are follow up questions needed here: Yes.
+Follow up: Who was the mother of George Washington?
+Intermediate answer: The mother of George Washington was Mary Ball Washington.
+Follow up: Who was the father of Mary Ball Washington?
+Intermediate answer: The father of Mary Ball Washington was Joseph Ball.
+So the final answer is: Joseph Ball
+"#
+            ),
+            vars!(
+                question =
+                    "Are both the directors of Jaws and Casino Royale from the same country?",
+                answer = r#"Are follow up questions needed here: Yes.
+Follow up: Who is the director of Jaws?
+Intermediate Answer: The director of Jaws is Steven Spielberg.
+Follow up: Where is Steven Spielberg from?
+Intermediate Answer: The United States.
+Follow up: Who is the director of Casino Royale?
+Intermediate Answer: The director of Casino Royale is Martin Campbell.
+Follow up: Where is Martin Campbell from?
+Intermediate Answer: New Zealand.
+So the final answer is: No
+"#
+            ),
         ];
 
-        let few_shot_template =
-            FewShotTemplate::with_options(examples.clone(), "Prefix", "Suffix", "---");
+        let example_template_str = r#"Question: {question}
 
-        assert_eq!(few_shot_template.prefix, "Prefix");
-        assert_eq!(few_shot_template.suffix, "Suffix");
-        assert_eq!(few_shot_template.example_separator, "---");
-        assert_eq!(few_shot_template.examples.len(), 2);
-        assert!(Arc::ptr_eq(&few_shot_template.examples[0], &examples[0]));
-        assert!(Arc::ptr_eq(&few_shot_template.examples[1], &examples[1]));
-    }
+{answer}"#;
 
-    #[tokio::test]
-    async fn test_few_shot_template_builder() {
-        let example_template1 = Template::new("Hi, {name}!").unwrap();
-        let example_template2 = Template::new("Welcome, {name}!").unwrap();
+        let example_template = Template::new(example_template_str).unwrap();
 
-        let few_shot_template = FewShotTemplate::builder()
-            .prefix("Builder Prefix")
-            .suffix("Builder Suffix")
-            .example_separator("===")
-            .add_example(example_template1.clone())
-            .add_example(example_template2.clone())
-            .build();
+        let mut formatted_examples = Vec::new();
 
-        assert_eq!(few_shot_template.prefix, "Builder Prefix");
-        assert_eq!(few_shot_template.suffix, "Builder Suffix");
-        assert_eq!(few_shot_template.example_separator, "===");
-        assert_eq!(few_shot_template.examples.len(), 2);
+        for example_vars in &examples {
+            let formatted_example = example_template.format(example_vars.clone()).await.unwrap();
+            let example = Template::new(&formatted_example).unwrap();
+            formatted_examples.push(example);
+        }
 
-        // Since we're storing Arc<T>, we can check pointer equality
-        assert_eq!(
-            few_shot_template.examples[0].template(),
-            example_template1.template()
-        );
-        assert_eq!(
-            few_shot_template.examples[1].template(),
-            example_template2.template()
-        );
-    }
+        let suffix_template_str = r#"Question: {input}"#;
 
-    #[tokio::test]
-    async fn test_few_shot_template_empty_examples() {
-        let few_shot_template = FewShotTemplate::<Template>::new(vec![]);
-
-        assert_eq!(few_shot_template.examples.len(), 0);
-    }
-
-    #[tokio::test]
-    async fn test_few_shot_template_builder_defaults() {
-        let few_shot_template = FewShotTemplate::<Template>::builder().build();
-
-        assert_eq!(few_shot_template.prefix, "");
-        assert_eq!(few_shot_template.suffix, "");
-        assert_eq!(few_shot_template.example_separator, "\n\n");
-        assert_eq!(few_shot_template.examples.len(), 0);
-    }
-
-    #[tokio::test]
-    async fn test_few_shot_template_builder_partial() {
-        let example_template = Template::new("Hi, {name}!").unwrap();
+        let suffix_template = Template::new(suffix_template_str).unwrap();
 
         let few_shot_template = FewShotTemplate::builder()
-            .prefix("Only Prefix")
-            .add_example(example_template.clone())
+            .add_examples(formatted_examples)
+            .suffix(suffix_template)
+            .example_separator("\n\n")
             .build();
 
-        assert_eq!(few_shot_template.prefix, "Only Prefix");
-        assert_eq!(few_shot_template.suffix, "");
-        assert_eq!(few_shot_template.example_separator, "\n\n");
-        assert_eq!(few_shot_template.examples.len(), 1);
-    }
+        let variables = vars!(input = "Who was the father of Mary Ball Washington?");
 
-    #[tokio::test]
-    async fn test_few_shot_template_examples_content() {
-        let example_template1 = Template::new("Hi, {name}!").unwrap();
-        let example_template2 = Template::new("Welcome, {name}!").unwrap();
+        let formatted_output = few_shot_template.format(variables).await.unwrap();
 
-        let examples = vec![
-            Arc::new(example_template1.clone()),
-            Arc::new(example_template2.clone()),
-        ];
+        let expected_output = r#"
+Question: Who lived longer, Muhammad Ali or Alan Turing?
 
-        let few_shot_template = FewShotTemplate::with_options(examples.clone(), "", "", "\n");
+Are follow up questions needed here: Yes.
+Follow up: How old was Muhammad Ali when he died?
+Intermediate answer: Muhammad Ali was 74 years old when he died.
+Follow up: How old was Alan Turing when he died?
+Intermediate answer: Alan Turing was 41 years old when he died.
+So the final answer is: Muhammad Ali
 
-        assert_eq!(few_shot_template.examples.len(), 2);
 
-        assert_eq!(few_shot_template.examples[0].template(), "Hi, {name}!");
-        assert_eq!(few_shot_template.examples[1].template(), "Welcome, {name}!");
-    }
+Question: When was the founder of craigslist born?
 
-    #[tokio::test]
-    async fn test_builder_chaining() {
-        let example_template = Template::new("Example {number}").unwrap();
+Are follow up questions needed here: Yes.
+Follow up: Who was the founder of craigslist?
+Intermediate answer: Craigslist was founded by Craig Newmark.
+Follow up: When was Craig Newmark born?
+Intermediate answer: Craig Newmark was born on December 6, 1952.
+So the final answer is: December 6, 1952
 
-        let few_shot_template = FewShotTemplate::builder()
-            .prefix("Prefix")
-            .suffix("Suffix")
-            .example_separator("---")
-            .add_example(example_template.clone())
-            .build();
 
-        assert_eq!(few_shot_template.prefix, "Prefix");
-        assert_eq!(few_shot_template.suffix, "Suffix");
-        assert_eq!(few_shot_template.example_separator, "---");
-        assert_eq!(few_shot_template.examples.len(), 1);
-    }
+Question: Who was the maternal grandfather of George Washington?
 
-    #[tokio::test]
-    async fn test_multiple_examples_in_builder() {
-        let example_template1 = Template::new("Example 1").unwrap();
-        let example_template2 = Template::new("Example 2").unwrap();
-        let example_template3 = Template::new("Example 3").unwrap();
+Are follow up questions needed here: Yes.
+Follow up: Who was the mother of George Washington?
+Intermediate answer: The mother of George Washington was Mary Ball Washington.
+Follow up: Who was the father of Mary Ball Washington?
+Intermediate answer: The father of Mary Ball Washington was Joseph Ball.
+So the final answer is: Joseph Ball
 
-        let few_shot_template = FewShotTemplate::builder()
-            .add_example(example_template1.clone())
-            .add_example(example_template2.clone())
-            .add_example(example_template3.clone())
-            .build();
 
-        assert_eq!(few_shot_template.examples.len(), 3);
-        assert_eq!(few_shot_template.examples[0].template(), "Example 1");
-        assert_eq!(few_shot_template.examples[1].template(), "Example 2");
-        assert_eq!(few_shot_template.examples[2].template(), "Example 3");
-    }
+Question: Are both the directors of Jaws and Casino Royale from the same country?
 
-    #[tokio::test]
-    async fn test_custom_example_separator() {
-        let example_template1 = Template::new("Example A").unwrap();
-        let example_template2 = Template::new("Example B").unwrap();
+Are follow up questions needed here: Yes.
+Follow up: Who is the director of Jaws?
+Intermediate Answer: The director of Jaws is Steven Spielberg.
+Follow up: Where is Steven Spielberg from?
+Intermediate Answer: The United States.
+Follow up: Who is the director of Casino Royale?
+Intermediate Answer: The director of Casino Royale is Martin Campbell.
+Follow up: Where is Martin Campbell from?
+Intermediate Answer: New Zealand.
+So the final answer is: No
 
-        let few_shot_template = FewShotTemplate::builder()
-            .example_separator("||")
-            .add_example(example_template1.clone())
-            .add_example(example_template2.clone())
-            .build();
 
-        assert_eq!(few_shot_template.example_separator, "||");
+Question: Who was the father of Mary Ball Washington?
+"#;
+
+        let formatted_output_trimmed = formatted_output.trim();
+        let expected_output_trimmed = expected_output.trim();
+
+        assert_eq!(formatted_output_trimmed, expected_output_trimmed);
     }
 }
