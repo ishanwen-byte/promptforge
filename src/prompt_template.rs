@@ -10,7 +10,7 @@
 //!
 //! ```rust
 //! use promptforge::{PromptTemplate, TemplateError, vars};
-//! use promptforge::Template;
+//! use promptforge::Templatable;
 //!
 //! fn main() -> Result<(), TemplateError> {
 //!     let tmpl = PromptTemplate::new("Hello, {name}! Your order number is {order_id}.")?;
@@ -25,7 +25,7 @@
 //! ### Mustache Template
 //!
 //! ```rust
-//! use promptforge::Template;
+//! use promptforge::Templatable;
 //! use promptforge::{PromptTemplate, TemplateError, vars};
 //!
 //! fn main() -> Result<(), TemplateError> {
@@ -41,7 +41,7 @@
 //! ### Handling Missing Variables
 //!
 //! ```rust
-//! use promptforge::Template;
+//! use promptforge::Templatable;
 //! use promptforge::{PromptTemplate, TemplateError, vars};
 //!
 //! fn main() -> Result<(), TemplateError> {
@@ -182,7 +182,7 @@ use std::collections::HashMap;
 use handlebars::Handlebars;
 
 use crate::placeholder::extract_variables;
-use crate::template::Template;
+use crate::template::Templatable;
 use crate::template_format::{
     detect_template, merge_vars, validate_template, TemplateError, TemplateFormat,
 };
@@ -296,7 +296,7 @@ impl PromptTemplate {
     }
 }
 
-impl Template for PromptTemplate {
+impl Templatable for PromptTemplate {
     fn format(
         &self,
         variables: std::collections::HashMap<&str, &str>,

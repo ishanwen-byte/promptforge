@@ -15,7 +15,7 @@ pub use template_format::TemplateFormat;
 pub mod vars;
 
 pub mod template;
-pub use template::Template;
+pub use template::Templatable;
 
 pub mod prompt_template;
 pub use prompt_template::PromptTemplate;

@@ -28,7 +28,7 @@ impl MessageLike {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Template;
+    use crate::Templatable;
     use messageforge::MessageType;
     use messageforge::{AiMessage, HumanMessage, SystemMessage};
 

@@ -4,8 +4,8 @@ use std::{collections::HashMap, ops::Add, sync::Arc};
 use messageforge::{BaseMessage, MessageEnum};
 
 use crate::{
-    message_like::MessageLike, MessagesPlaceholder, PromptTemplate, Role, Template, TemplateError,
-    TemplateFormat,
+    message_like::MessageLike, MessagesPlaceholder, PromptTemplate, Role, Templatable,
+    TemplateError, TemplateFormat,
 };
 
 #[derive(Debug, Clone)]
