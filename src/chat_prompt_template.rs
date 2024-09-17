@@ -1,3 +1,4 @@
+use futures::future::join_all;
 use std::{collections::HashMap, ops::Add, sync::Arc};
 
 use messageforge::{BaseMessage, MessageEnum};
@@ -13,7 +14,7 @@ pub struct ChatPromptTemplate {
 }
 
 impl ChatPromptTemplate {
-    pub fn from_messages(messages: &[(Role, &str)]) -> Result<Self, TemplateError> {
+    pub async fn from_messages(messages: &[(Role, &str)]) -> Result<Self, TemplateError> {
         let mut result = Vec::new();
 
         for &(role, tmpl) in messages {
@@ -44,72 +45,78 @@ impl ChatPromptTemplate {
         Ok(ChatPromptTemplate { messages: result })
     }
 
-    pub fn invoke(
+    pub async fn invoke(
         &self,
         variables: &HashMap<&str, &str>,
     ) -> Result<Vec<Arc<dyn BaseMessage>>, TemplateError> {
-        self.format_messages(variables)
+        self.format_messages(variables).await
     }
 
-    pub fn format_messages(
+    pub async fn format_messages(
         &self,
         variables: &HashMap<&str, &str>,
     ) -> Result<Vec<Arc<dyn BaseMessage>>, TemplateError> {
-        self.messages
+        let futures: Vec<_> = self
+            .messages
             .iter()
-            .map(|message_like| match message_like {
-                MessageLike::BaseMessage(base_message) => Ok(vec![base_message.clone()]),
+            .map(|message_like| async move {
+                match message_like {
+                    MessageLike::BaseMessage(base_message) => Ok(vec![base_message.clone()]),
 
-                MessageLike::RolePromptTemplate(role, template) => {
-                    let formatted_message = template
-                        .format(variables.clone())
-                        .map_err(|e| TemplateError::MalformedTemplate(e.to_string()))?;
-                    let base_message = role
-                        .to_message(&formatted_message)
-                        .map_err(|_| TemplateError::InvalidRoleError)?;
-                    Ok(vec![base_message])
-                }
+                    MessageLike::RolePromptTemplate(role, template) => {
+                        let formatted_message = template
+                            .format(variables.clone())
+                            .map_err(|e| TemplateError::MalformedTemplate(e.to_string()))?;
+                        let base_message = role
+                            .to_message(&formatted_message)
+                            .map_err(|_| TemplateError::InvalidRoleError)?;
+                        Ok(vec![base_message])
+                    }
 
-                MessageLike::Placeholder(placeholder) => {
-                    if placeholder.optional() {
-                        Ok(vec![])
-                    } else {
-                        let messages =
-                            variables.get(placeholder.variable_name()).ok_or_else(|| {
-                                TemplateError::MissingVariable(
-                                    placeholder.variable_name().to_string(),
-                                )
-                            })?;
-
-                        let deserialized_messages: Vec<MessageEnum> =
-                            serde_json::from_str(messages).map_err(|e| {
-                                TemplateError::MalformedTemplate(format!(
-                                    "Failed to deserialize placeholder: {}",
-                                    e
-                                ))
-                            })?;
-
-                        let limited_messages = if placeholder.n_messages() > 0 {
-                            deserialized_messages
-                                .into_iter()
-                                .take(placeholder.n_messages())
-                                .collect()
+                    MessageLike::Placeholder(placeholder) => {
+                        if placeholder.optional() {
+                            Ok(vec![])
                         } else {
-                            deserialized_messages
-                        };
+                            let messages =
+                                variables.get(placeholder.variable_name()).ok_or_else(|| {
+                                    TemplateError::MissingVariable(
+                                        placeholder.variable_name().to_string(),
+                                    )
+                                })?;
 
-                        Ok(limited_messages
-                            .into_iter()
-                            .map(|message_enum| Arc::new(message_enum) as Arc<dyn BaseMessage>)
-                            .collect())
+                            let deserialized_messages: Vec<MessageEnum> =
+                                serde_json::from_str(messages).map_err(|e| {
+                                    TemplateError::MalformedTemplate(format!(
+                                        "Failed to deserialize placeholder: {}",
+                                        e
+                                    ))
+                                })?;
+
+                            let limited_messages = if placeholder.n_messages() > 0 {
+                                deserialized_messages
+                                    .into_iter()
+                                    .take(placeholder.n_messages())
+                                    .collect()
+                            } else {
+                                deserialized_messages
+                            };
+
+                            Ok(limited_messages
+                                .into_iter()
+                                .map(|message_enum| Arc::new(message_enum) as Arc<dyn BaseMessage>)
+                                .collect())
+                        }
                     }
                 }
             })
-            .flat_map(|result| match result {
-                Ok(messages) => messages.into_iter().map(Ok).collect::<Vec<_>>(),
-                Err(e) => vec![Err(e)],
-            })
+            .collect();
+
+        let results = join_all(futures).await;
+
+        results
+            .into_iter()
             .collect::<Result<Vec<_>, _>>()
+            .map(|vecs| vecs.into_iter().flatten().collect())
     }
 }
 
@@ -130,14 +137,14 @@ mod tests {
     use crate::Role::{Ai, Human, Placeholder, System};
     use crate::{chat_templates, prompt_vars};
 
-    #[test]
-    fn test_from_messages_plaintext() {
+    #[tokio::test]
+    async fn test_from_messages_plaintext() {
         let templates = chat_templates!(
             System = "This is a system message.",
             Human = "Hello, human!",
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates);
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).await;
         let chat_prompt = chat_prompt.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
@@ -154,14 +161,14 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_from_messages_formatted_template() {
+    #[tokio::test]
+    async fn test_from_messages_formatted_template() {
         let templates = chat_templates!(
             System = "You are a helpful AI bot. Your name is {name}.",
             Ai = "I'm doing well, thank you.",
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates);
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).await;
         let chat_prompt = chat_prompt.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
@@ -182,14 +189,14 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_from_messages_placeholder() {
+    #[tokio::test]
+    async fn test_from_messages_placeholder() {
         let templates = chat_templates!(
             System = "This is a valid system message.",
             Placeholder = "{history}",
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
         if let MessageLike::BaseMessage(system_message) = &chat_prompt.messages[0] {
@@ -207,45 +214,45 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_invoke_with_base_messages() {
+    #[tokio::test]
+    async fn test_invoke_with_base_messages() {
         let templates = chat_templates!(
             System = "This is a system message.",
             Human = "Hello, human!"
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
 
         assert_eq!(chat_prompt.messages.len(), 2);
 
         let variables = HashMap::new();
-        let result = chat_prompt.invoke(&variables).unwrap();
+        let result = chat_prompt.invoke(&variables).await.unwrap();
 
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].content(), "This is a system message.");
         assert_eq!(result[1].content(), "Hello, human!");
     }
 
-    #[test]
-    fn test_invoke_with_role_prompt_template() {
+    #[tokio::test]
+    async fn test_invoke_with_role_prompt_template() {
         let templates = chat_templates!(
             System = "System maintenance is scheduled.",
             Human = "Hello, {name}!"
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
         let variables = prompt_vars!(name = "Alice");
-        let result = chat_prompt.invoke(&variables).unwrap();
+        let result = chat_prompt.invoke(&variables).await.unwrap();
 
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].content(), "System maintenance is scheduled.");
         assert_eq!(result[1].content(), "Hello, Alice!");
     }
 
-    #[test]
-    fn test_invoke_with_placeholder_and_role_templates() {
+    #[tokio::test]
+    async fn test_invoke_with_placeholder_and_role_templates() {
         let history_json = json!([
             {
                 "role": "human",
@@ -264,11 +271,11 @@ mod tests {
             Human = "How can I help you, {name}?"
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
         assert_eq!(chat_prompt.messages.len(), 3);
 
         let variables = prompt_vars!(history = history_json.as_str(), name = "Bob");
-        let result = chat_prompt.invoke(&variables).unwrap();
+        let result = chat_prompt.invoke(&variables).await.unwrap();
 
         assert_eq!(result.len(), 4);
         assert_eq!(result[0].content(), "This is a system message.");
@@ -277,8 +284,8 @@ mod tests {
         assert_eq!(result[3].content(), "How can I help you, Bob?");
     }
 
-    #[test]
-    fn test_invoke_with_invalid_json_history() {
+    #[tokio::test]
+    async fn test_invoke_with_invalid_json_history() {
         let invalid_history_json = "invalid json string";
 
         let templates = chat_templates!(
@@ -287,46 +294,45 @@ mod tests {
             Human = "How can I help you, {name}?"
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
         let variables = prompt_vars!(history = invalid_history_json, name = "Bob");
 
-        let result = chat_prompt.invoke(&variables);
+        let result = chat_prompt.invoke(&variables).await;
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_empty_templates() {
+    #[tokio::test]
+    async fn test_empty_templates() {
         let templates = chat_templates!();
         let chat_prompt = ChatPromptTemplate::from_messages(templates);
-        assert!(chat_prompt.is_ok());
-        assert!(chat_prompt.unwrap().messages.is_empty());
+        assert!(chat_prompt.await.unwrap().messages.is_empty());
     }
 
-    #[test]
-    fn test_invoke_with_empty_variables_map() {
+    #[tokio::test]
+    async fn test_invoke_with_empty_variables_map() {
         let templates = chat_templates!(
             System = "System maintenance is scheduled.",
             Human = "Hello, {name}!"
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
         let variables = prompt_vars!();
 
-        let result = chat_prompt.invoke(&variables);
+        let result = chat_prompt.invoke(&variables).await;
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_invoke_with_multiple_placeholders_in_one_template() {
+    #[tokio::test]
+    async fn test_invoke_with_multiple_placeholders_in_one_template() {
         let templates = chat_templates!(
             Human = "Hello, {name}. How are you on this {day}?",
             System = "Today is {day}. Have a great {day}."
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).unwrap();
+        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
         let variables = prompt_vars!(name = "Alice", day = "Monday");
 
-        let result = chat_prompt.invoke(&variables).unwrap();
+        let result = chat_prompt.invoke(&variables).await.unwrap();
 
         assert_eq!(result.len(), 2);
         assert_eq!(
@@ -336,12 +342,14 @@ mod tests {
         assert_eq!(result[1].content(), "Today is Monday. Have a great Monday.");
     }
 
-    #[test]
-    fn test_add_two_templates() {
-        let template1 =
-            ChatPromptTemplate::from_messages(&[(System, "You are a helpful AI bot.")]).unwrap();
-        let template2 =
-            ChatPromptTemplate::from_messages(&[(Human, "What is the weather today?")]).unwrap();
+    #[tokio::test]
+    async fn test_add_two_templates() {
+        let template1 = ChatPromptTemplate::from_messages(&[(System, "You are a helpful AI bot.")])
+            .await
+            .unwrap();
+        let template2 = ChatPromptTemplate::from_messages(&[(Human, "What is the weather today?")])
+            .await
+            .unwrap();
 
         let combined_template = template1 + template2;
 
@@ -360,12 +368,17 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_add_multiple_templates() {
-        let system_template =
-            ChatPromptTemplate::from_messages(&[(System, "System message.")]).unwrap();
-        let user_template = ChatPromptTemplate::from_messages(&[(Human, "User message.")]).unwrap();
-        let ai_template = ChatPromptTemplate::from_messages(&[(Ai, "AI message.")]).unwrap();
+    #[tokio::test]
+    async fn test_add_multiple_templates() {
+        let system_template = ChatPromptTemplate::from_messages(&[(System, "System message.")])
+            .await
+            .unwrap();
+        let user_template = ChatPromptTemplate::from_messages(&[(Human, "User message.")])
+            .await
+            .unwrap();
+        let ai_template = ChatPromptTemplate::from_messages(&[(Ai, "AI message.")])
+            .await
+            .unwrap();
 
         let combined_template = system_template + user_template + ai_template;
 
@@ -390,11 +403,13 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_add_empty_template() {
-        let empty_template = ChatPromptTemplate::from_messages(&[]).unwrap();
+    #[tokio::test]
+    async fn test_add_empty_template() {
+        let empty_template = ChatPromptTemplate::from_messages(&[]).await.unwrap();
         let filled_template =
-            ChatPromptTemplate::from_messages(&[(System, "This is a system message.")]).unwrap();
+            ChatPromptTemplate::from_messages(&[(System, "This is a system message.")])
+                .await
+                .unwrap();
 
         let combined_template = empty_template + filled_template;
 
@@ -406,11 +421,13 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_add_to_empty_template() {
+    #[tokio::test]
+    async fn test_add_to_empty_template() {
         let filled_template =
-            ChatPromptTemplate::from_messages(&[(System, "This is a system message.")]).unwrap();
-        let empty_template = ChatPromptTemplate::from_messages(&[]).unwrap();
+            ChatPromptTemplate::from_messages(&[(System, "This is a system message.")])
+                .await
+                .unwrap();
+        let empty_template = ChatPromptTemplate::from_messages(&[]).await.unwrap();
 
         let combined_template = filled_template + empty_template;
 
