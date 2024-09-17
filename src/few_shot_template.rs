@@ -133,7 +133,7 @@ impl<T: Templatable + Send + Sync> FewShotTemplateBuilder<T> {
         self
     }
 
-    pub fn add_examples<I>(mut self, examples: I) -> Self
+    pub fn examples<I>(mut self, examples: I) -> Self
     where
         I: IntoIterator<Item = T>,
     {
@@ -510,7 +510,7 @@ So the final answer is: No
         let suffix_template = Template::new(suffix_template_str).unwrap();
 
         let few_shot_template = FewShotTemplate::builder()
-            .add_examples(formatted_examples)
+            .examples(formatted_examples)
             .suffix(suffix_template)
             .example_separator("\n\n")
             .build();
