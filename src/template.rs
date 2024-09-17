@@ -194,7 +194,7 @@ use crate::template_format::{
     detect_template, merge_vars, validate_template, TemplateError, TemplateFormat,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Template {
     template: String,
     template_format: TemplateFormat,
