@@ -4,10 +4,6 @@ macro_rules! vars {
         std::collections::HashMap::new()
     };
 
-    ($key:ident = $value:expr) => {
-        std::collections::HashMap::from([(stringify!($key), $value)])
-    };
-
     ($($key:ident = $value:expr),+ $(,)?) => {
         {
             let mut map = std::collections::HashMap::new();
