@@ -49,9 +49,9 @@ impl<T: Templatable + Send + Sync> FewShotTemplate<T> {
         FewShotTemplateBuilder::new()
     }
 
-    pub async fn format(&self, variables: HashMap<&str, &str>) -> Result<String, TemplateError> {
+    pub fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
         let prefix_str = if let Some(ref prefix_template) = self.prefix {
-            prefix_template.format(variables.clone()).await?
+            prefix_template.format(variables)?
         } else {
             String::new()
         };
@@ -59,14 +59,14 @@ impl<T: Templatable + Send + Sync> FewShotTemplate<T> {
         let mut formatted_examples = Vec::new();
 
         for example in &self.examples {
-            let formatted_example = example.format(variables.clone()).await?;
+            let formatted_example = example.format(variables)?;
             formatted_examples.push(formatted_example);
         }
 
         let examples_str = formatted_examples.join(&self.example_separator);
 
         let suffix_str = if let Some(ref suffix_template) = self.suffix {
-            suffix_template.format(variables.clone()).await?
+            suffix_template.format(variables)?
         } else {
             String::new()
         };
@@ -175,7 +175,7 @@ mod tests {
             .example_separator("\n---\n")
             .build();
 
-        let variables = vars!(
+        let variables = &vars!(
             topic = "Science",
             question1 = "What is the speed of light?",
             answer1 = "Approximately 299,792 kilometers per second.",
@@ -183,7 +183,7 @@ mod tests {
             answer2 = "Approximately 6.674×10^-11 N·(m/kg)^2.",
         );
 
-        let formatted_output = few_shot_template.format(variables).await.unwrap();
+        let formatted_output = few_shot_template.format(variables).unwrap();
         let expected_output = "\
 This is the prefix. Topic: Science
 ---
@@ -209,8 +209,8 @@ This is the suffix. Remember to think about Science.";
             .example_separator("\n***\n")
             .build();
 
-        let variables = vars!(variable = "test data",);
-        let formatted_output = few_shot_template.format(variables).await.unwrap();
+        let variables = &vars!(variable = "test data",);
+        let formatted_output = few_shot_template.format(variables).unwrap();
         let expected_output = "\
 First example with test data.
 ***
@@ -229,8 +229,8 @@ Second example with test data.";
             .suffix(suffix_template)
             .build();
 
-        let variables = vars!();
-        let formatted_output = few_shot_template.format(variables).await.unwrap();
+        let variables = &vars!();
+        let formatted_output = few_shot_template.format(variables).unwrap();
 
         let expected_output = "\
 This is the prefix.
@@ -252,13 +252,13 @@ This is the suffix.";
             .suffix(suffix_template)
             .build();
 
-        let variables = vars!(
+        let variables = &vars!(
             var1 = "value1",
             // var2 is missing
             var3 = "value3",
         );
 
-        let result = few_shot_template.format(variables).await;
+        let result = few_shot_template.format(variables);
 
         // Expect an error due to missing 'var2'
         assert!(result.is_err());
@@ -281,8 +281,8 @@ This is the suffix.";
             .suffix(suffix_template)
             .build();
 
-        let variables = vars!(user = "Alice",);
-        let result = few_shot_template.format(variables).await;
+        let variables = &vars!(user = "Alice",);
+        let result = few_shot_template.format(variables);
 
         assert!(result.is_err());
         if let Err(TemplateError::MissingVariable(msg)) = result {
@@ -307,8 +307,8 @@ This is the suffix.";
             .example_separator("\n===\n")
             .build();
 
-        let variables = vars!();
-        let formatted_output = few_shot_template.format(variables).await.unwrap();
+        let variables = &vars!();
+        let formatted_output = few_shot_template.format(variables).unwrap();
 
         let expected_output = "\
 Start
@@ -334,8 +334,8 @@ End";
             .suffix(suffix_template)
             .build();
 
-        let variables = vars!();
-        let formatted_output = few_shot_template.format(variables).await.unwrap();
+        let variables = &vars!();
+        let formatted_output = few_shot_template.format(variables).unwrap();
 
         let expected_output = "\
 Plain prefix
@@ -366,8 +366,8 @@ Plain suffix";
         }
         builder = builder.suffix(suffix_template);
         let few_shot_template = builder.build();
-        let variables = vars!();
-        let formatted_output = few_shot_template.format(variables).await.unwrap();
+        let variables = &vars!();
+        let formatted_output = few_shot_template.format(variables).unwrap();
 
         let expected_output = "\
 Examples Start
@@ -400,8 +400,8 @@ Examples End";
             .suffix(suffix_template)
             .build();
 
-        let variables = vars!(var = "Value",);
-        let formatted_output = few_shot_template.format(variables).await.unwrap();
+        let variables = &vars!(var = "Value",);
+        let formatted_output = few_shot_template.format(variables).unwrap();
 
         let expected_output = "\
 Start Value
@@ -425,8 +425,8 @@ End Value";
             .suffix(suffix_template)
             .build();
 
-        let variables = vars!();
-        let formatted_output = few_shot_template.format(variables).await.unwrap();
+        let variables = &vars!();
+        let formatted_output = few_shot_template.format(variables).unwrap();
 
         let expected_output = "\
 Only Prefix
@@ -498,7 +498,7 @@ So the final answer is: No
         let mut formatted_examples = Vec::new();
 
         for example_vars in &examples {
-            let formatted_example = example_template.format(example_vars.clone()).await.unwrap();
+            let formatted_example = example_template.format(example_vars).unwrap();
             let example = Template::new(&formatted_example).unwrap();
             formatted_examples.push(example);
         }
@@ -513,9 +513,9 @@ So the final answer is: No
             .example_separator("\n\n")
             .build();
 
-        let variables = vars!(input = "Who was the father of Mary Ball Washington?");
+        let variables = &vars!(input = "Who was the father of Mary Ball Washington?");
 
-        let formatted_output = few_shot_template.format(variables).await.unwrap();
+        let formatted_output = few_shot_template.format(variables).unwrap();
 
         let expected_output = r#"
 Question: Who lived longer, Muhammad Ali or Alan Turing?

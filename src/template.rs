@@ -16,8 +16,8 @@
 //! #[tokio::main]
 //! async fn main() -> Result<(), TemplateError> {
 //!     let tmpl = Template::new("Hello, {name}! Your order number is {order_id}.")?;
-//!     let variables = vars!(name = "Alice", order_id = "12345");
-//!     let result = tmpl.format(variables).await?;
+//!     let variables = &vars!(name = "Alice", order_id = "12345");
+//!     let result = tmpl.format(variables)?;
 //!     
 //!     println!("{}", result);  // Outputs: Hello, Alice! Your order number is 12345.
 //!     Ok(())
@@ -34,8 +34,8 @@
 //! #[tokio::main]
 //! async fn main() -> Result<(), TemplateError> {
 //!     let tmpl = Template::new("Hello, {{name}}! Your favorite color is {{color}}.")?;
-//!     let variables = vars!(name = "Bob", color = "blue");
-//!     let result = tmpl.format(variables).await?;
+//!     let variables = &vars!(name = "Bob", color = "blue");
+//!     let result = tmpl.format(variables)?;
 //!     
 //!     println!("{}", result);  // Outputs: Hello, Bob! Your favorite color is blue.
 //!     Ok(())
@@ -52,8 +52,8 @@
 //! #[tokio::main]
 //! async fn main() -> Result<(), TemplateError> {
 //!     let tmpl = Template::new("Hi, {name}! Please confirm your email: {email}.")?;
-//!     let variables = vars!(name = "Charlie");
-//!     let result = tmpl.format(variables).await;
+//!     let variables = &vars!(name = "Charlie");
+//!     let result = tmpl.format(variables);
 //!     
 //!     assert!(result.is_err());
 //!     println!("Error: {:?}", result.unwrap_err());  // Outputs: Error: MissingVariable("email")
@@ -275,10 +275,7 @@ impl Template {
         Ok(())
     }
 
-    async fn format_fmtstring(
-        &self,
-        variables: &HashMap<&str, &str>,
-    ) -> Result<String, TemplateError> {
+    fn format_fmtstring(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
         let mut result = self.template.clone();
 
         for var in &self.input_variables {
@@ -294,10 +291,7 @@ impl Template {
         Ok(result)
     }
 
-    async fn format_mustache(
-        &self,
-        variables: &HashMap<&str, &str>,
-    ) -> Result<String, TemplateError> {
+    fn format_mustache(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
         match &self.handlebars {
             None => Err(TemplateError::UnsupportedFormat(
                 "Handlebars not initialized".to_string(),
@@ -310,16 +304,13 @@ impl Template {
 }
 
 impl Templatable for Template {
-    async fn format(
-        &self,
-        variables: std::collections::HashMap<&str, &str>,
-    ) -> Result<String, TemplateError> {
-        let merged_variables = merge_vars(&self.partials, &variables);
+    fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
+        let merged_variables = merge_vars(&self.partials, variables);
         self.validate_variables(&merged_variables)?;
 
         match self.template_format {
-            TemplateFormat::FmtString => self.format_fmtstring(&merged_variables).await,
-            TemplateFormat::Mustache => self.format_mustache(&merged_variables).await,
+            TemplateFormat::FmtString => self.format_fmtstring(&merged_variables),
+            TemplateFormat::Mustache => self.format_mustache(&merged_variables),
             TemplateFormat::PlainText => Ok(self.template.clone()),
         }
     }
@@ -387,91 +378,91 @@ mod tests {
     #[tokio::test]
     async fn test_fmtstring_formatting() {
         let tmpl = Template::new("Hello, {name}!").unwrap();
-        let variables = vars!(name = "John");
-        let formatted = tmpl.format(variables).await.unwrap();
+        let variables = &vars!(name = "John");
+        let formatted = tmpl.format(variables).unwrap();
         assert_eq!(formatted, "Hello, John!");
 
         let tmpl = Template::new("Hi {name}, you are {age} years old!").unwrap();
-        let variables = vars!(name = "Alice", age = "30");
-        let formatted = tmpl.format(variables).await.unwrap();
+        let variables = &vars!(name = "Alice", age = "30");
+        let formatted = tmpl.format(variables).unwrap();
         assert_eq!(formatted, "Hi Alice, you are 30 years old!");
 
         let tmpl = Template::new("Hello World!").unwrap();
-        let variables = vars!();
-        let formatted = tmpl.format(variables).await.unwrap();
+        let variables = &vars!();
+        let formatted = tmpl.format(variables).unwrap();
         assert_eq!(formatted, "Hello World!");
 
         let tmpl = Template::new("Goodbye, {name}!").unwrap();
-        let variables = vars!(name = "John", extra = "data");
-        let formatted = tmpl.format(variables).await.unwrap();
+        let variables = &vars!(name = "John", extra = "data");
+        let formatted = tmpl.format(variables).unwrap();
         assert_eq!(formatted, "Goodbye, John!");
 
         let tmpl = Template::new("Goodbye, {name}!").unwrap();
-        let variables = vars!(wrong_name = "John");
-        let result = tmpl.format(variables).await;
+        let variables = &vars!(wrong_name = "John");
+        let result = tmpl.format(variables);
         assert!(result.is_err());
 
         let tmpl = Template::new("Hi {name}, you are {age} years old!").unwrap();
-        let variables = vars!(name = "Alice");
-        let result = tmpl.format(variables).await.unwrap_err();
+        let variables = &vars!(name = "Alice");
+        let result = tmpl.format(variables).unwrap_err();
         assert!(matches!(result, TemplateError::MissingVariable(_)));
     }
 
     #[tokio::test]
     async fn test_format_mustache_success() {
         let tmpl = Template::new("Hello, {{name}}!").unwrap();
-        let variables = vars!(name = "John");
-        let result = tmpl.format(variables).await.unwrap();
+        let variables = &vars!(name = "John");
+        let result = tmpl.format(variables).unwrap();
         assert_eq!(result, "Hello, John!");
 
-        let variables = vars!(name = "John", extra = "data");
-        let result = tmpl.format(variables).await.unwrap();
+        let variables = &vars!(name = "John", extra = "data");
+        let result = tmpl.format(variables).unwrap();
         assert_eq!(result, "Hello, John!");
 
         let tmpl_multiple_vars = Template::new("Hello, {{name}}! You are {{adjective}}.").unwrap();
-        let variables = vars!(name = "John", adjective = "awesome");
-        let result = tmpl_multiple_vars.format(variables).await.unwrap();
+        let variables = &vars!(name = "John", adjective = "awesome");
+        let result = tmpl_multiple_vars.format(variables).unwrap();
         assert_eq!(result, "Hello, John! You are awesome.");
 
         let tmpl_multiple_instances =
             Template::new("{{greeting}}, {{name}}! {{greeting}}, again!").unwrap();
-        let variables = vars!(greeting = "Hello", name = "John");
-        let result = tmpl_multiple_instances.format(variables).await.unwrap();
+        let variables = &vars!(greeting = "Hello", name = "John");
+        let result = tmpl_multiple_instances.format(variables).unwrap();
         assert_eq!(result, "Hello, John! Hello, again!");
     }
 
     #[tokio::test]
     async fn test_format_mustache_error() {
         let tmpl_missing_var = Template::new("Hello, {{name}}!").unwrap();
-        let variables = vars!(adjective = "cool");
-        let err = tmpl_missing_var.format(variables).await.unwrap_err();
+        let variables = &vars!(adjective = "cool");
+        let err = tmpl_missing_var.format(variables).unwrap_err();
         assert!(matches!(err, TemplateError::MissingVariable(_)));
     }
 
     #[tokio::test]
     async fn test_format_plaintext() {
         let tmpl = Template::new("Hello, world!").unwrap();
-        let variables = vars!();
-        let result = tmpl.format(variables).await.unwrap();
+        let variables = &vars!();
+        let result = tmpl.format(variables).unwrap();
         assert_eq!(result, "Hello, world!");
 
         let tmpl = Template::new("Welcome to the Rust world!").unwrap();
-        let variables = vars!(name = "John", adjective = "awesome");
-        let result = tmpl.format(variables).await.unwrap();
+        let variables = &vars!(name = "John", adjective = "awesome");
+        let result = tmpl.format(variables).unwrap();
         assert_eq!(result, "Welcome to the Rust world!");
 
         let tmpl_no_placeholders = Template::new("No placeholders here").unwrap();
-        let variables = vars!(name = "ignored");
-        let result = tmpl_no_placeholders.format(variables).await.unwrap();
+        let variables = &vars!(name = "ignored");
+        let result = tmpl_no_placeholders.format(variables).unwrap();
         assert_eq!(result, "No placeholders here");
 
         let tmpl_extra_spaces = Template::new("  Just some text   ").unwrap();
-        let variables = vars!();
-        let result = tmpl_extra_spaces.format(variables).await.unwrap();
+        let variables = &vars!();
+        let result = tmpl_extra_spaces.format(variables).unwrap();
         assert_eq!(result, "  Just some text   ");
 
         let tmpl_with_newlines = Template::new("Text with\nmultiple lines\n").unwrap();
-        let result = tmpl_with_newlines.format(vars!()).await.unwrap();
+        let result = tmpl_with_newlines.format(&vars!()).unwrap();
         assert_eq!(result, "Text with\nmultiple lines\n");
     }
 
@@ -484,12 +475,12 @@ mod tests {
         let partial_vars = template.partial_vars();
         assert_eq!(partial_vars.get("name"), Some(&"Jill".to_string()));
 
-        let variables = vars!();
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!();
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Jill");
 
-        let variables = vars!(name = "Alice");
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!(name = "Alice");
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Alice");
     }
 
@@ -503,12 +494,12 @@ mod tests {
         assert_eq!(partial_vars.get("name"), Some(&"Jill".to_string()));
         assert_eq!(partial_vars.get("mood"), Some(&"happy".to_string()));
 
-        let variables = vars!();
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!();
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Jill. You are feeling happy.");
 
-        let variables = vars!(mood = "excited");
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!(mood = "excited");
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Jill. You are feeling excited.");
     }
 
@@ -521,12 +512,12 @@ mod tests {
         let partial_vars = template.partial_vars();
         assert!(partial_vars.is_empty());
 
-        let variables = vars!(name = "John");
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!(name = "John");
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, John.");
 
-        let variables = vars!();
-        let result = template.format(variables).await;
+        let variables = &vars!();
+        let result = template.format(variables);
         assert!(result.is_err());
     }
 
@@ -549,12 +540,12 @@ mod tests {
         template.clear_partials();
         assert!(template.partial_vars().is_empty());
 
-        let variables = vars!(name = "Charlie");
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!(name = "Charlie");
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Charlie!");
 
-        let variables = vars!();
-        let result = template.format(variables).await;
+        let variables = &vars!();
+        let result = template.format(variables);
         assert!(result.is_err());
     }
 
@@ -564,20 +555,20 @@ mod tests {
 
         template.partial("name", "Alice").partial("mood", "calm");
 
-        let variables = vars!();
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!();
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Alice. You are feeling calm.");
 
-        let variables = vars!(mood = "excited");
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!(mood = "excited");
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Alice. You are feeling excited.");
 
-        let variables = vars!(name = "Bob");
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!(name = "Bob");
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Bob. You are feeling calm.");
 
-        let variables = vars!(name = "Charlie", mood = "joyful");
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!(name = "Charlie", mood = "joyful");
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Charlie. You are feeling joyful.");
     }
 
@@ -587,12 +578,12 @@ mod tests {
 
         template.partial("name", "Alice");
 
-        let variables = vars!();
-        let result = template.format(variables).await;
+        let variables = &vars!();
+        let result = template.format(variables);
         assert!(result.is_err());
 
-        let variables = vars!(mood = "happy");
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!(mood = "happy");
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Alice. You are feeling happy.");
     }
 
@@ -602,8 +593,8 @@ mod tests {
 
         template.partial("name", "Alice").partial("mood", "calm");
 
-        let variables = vars!(name = "Bob", mood = "excited");
-        let formatted = template.format(variables).await.unwrap();
+        let variables = &vars!(name = "Bob", mood = "excited");
+        let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Bob. You are feeling excited.");
     }
 }
