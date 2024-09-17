@@ -9,11 +9,11 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-pub struct ChatPromptTemplate {
+pub struct ChatTemplate {
     pub messages: Vec<MessageLike>,
 }
 
-impl ChatPromptTemplate {
+impl ChatTemplate {
     pub async fn from_messages(messages: &[(Role, &str)]) -> Result<Self, TemplateError> {
         let mut result = Vec::new();
 
@@ -42,7 +42,7 @@ impl ChatPromptTemplate {
             }
         }
 
-        Ok(ChatPromptTemplate { messages: result })
+        Ok(ChatTemplate { messages: result })
     }
 
     pub async fn invoke(
@@ -120,9 +120,9 @@ impl ChatPromptTemplate {
     }
 }
 
-impl Add for ChatPromptTemplate {
-    type Output = ChatPromptTemplate;
-    fn add(mut self, other: ChatPromptTemplate) -> ChatPromptTemplate {
+impl Add for ChatTemplate {
+    type Output = ChatTemplate;
+    fn add(mut self, other: ChatTemplate) -> ChatTemplate {
         self.messages.extend(other.messages);
         self
     }
@@ -144,7 +144,7 @@ mod tests {
             Human = "Hello, human!",
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).await;
+        let chat_prompt = ChatTemplate::from_messages(templates).await;
         let chat_prompt = chat_prompt.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
@@ -168,7 +168,7 @@ mod tests {
             Ai = "I'm doing well, thank you.",
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).await;
+        let chat_prompt = ChatTemplate::from_messages(templates).await;
         let chat_prompt = chat_prompt.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
@@ -196,7 +196,7 @@ mod tests {
             Placeholder = "{history}",
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
         if let MessageLike::BaseMessage(system_message) = &chat_prompt.messages[0] {
@@ -221,7 +221,7 @@ mod tests {
             Human = "Hello, human!"
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
 
         assert_eq!(chat_prompt.messages.len(), 2);
 
@@ -240,7 +240,7 @@ mod tests {
             Human = "Hello, {name}!"
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
         let variables = vars!(name = "Alice");
@@ -271,7 +271,7 @@ mod tests {
             Human = "How can I help you, {name}?"
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
         assert_eq!(chat_prompt.messages.len(), 3);
 
         let variables = vars!(history = history_json.as_str(), name = "Bob");
@@ -294,7 +294,7 @@ mod tests {
             Human = "How can I help you, {name}?"
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
         let variables = vars!(history = invalid_history_json, name = "Bob");
 
         let result = chat_prompt.invoke(&variables).await;
@@ -304,7 +304,7 @@ mod tests {
     #[tokio::test]
     async fn test_empty_templates() {
         let templates = chats!();
-        let chat_prompt = ChatPromptTemplate::from_messages(templates);
+        let chat_prompt = ChatTemplate::from_messages(templates);
         assert!(chat_prompt.await.unwrap().messages.is_empty());
     }
 
@@ -315,7 +315,7 @@ mod tests {
             Human = "Hello, {name}!"
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
         let variables = vars!();
 
         let result = chat_prompt.invoke(&variables).await;
@@ -329,7 +329,7 @@ mod tests {
             System = "Today is {day}. Have a great {day}."
         );
 
-        let chat_prompt = ChatPromptTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
         let variables = vars!(name = "Alice", day = "Monday");
 
         let result = chat_prompt.invoke(&variables).await.unwrap();
@@ -344,10 +344,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_two_templates() {
-        let template1 = ChatPromptTemplate::from_messages(&[(System, "You are a helpful AI bot.")])
+        let template1 = ChatTemplate::from_messages(&[(System, "You are a helpful AI bot.")])
             .await
             .unwrap();
-        let template2 = ChatPromptTemplate::from_messages(&[(Human, "What is the weather today?")])
+        let template2 = ChatTemplate::from_messages(&[(Human, "What is the weather today?")])
             .await
             .unwrap();
 
@@ -370,13 +370,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_multiple_templates() {
-        let system_template = ChatPromptTemplate::from_messages(&[(System, "System message.")])
+        let system_template = ChatTemplate::from_messages(&[(System, "System message.")])
             .await
             .unwrap();
-        let user_template = ChatPromptTemplate::from_messages(&[(Human, "User message.")])
+        let user_template = ChatTemplate::from_messages(&[(Human, "User message.")])
             .await
             .unwrap();
-        let ai_template = ChatPromptTemplate::from_messages(&[(Ai, "AI message.")])
+        let ai_template = ChatTemplate::from_messages(&[(Ai, "AI message.")])
             .await
             .unwrap();
 
@@ -405,11 +405,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_empty_template() {
-        let empty_template = ChatPromptTemplate::from_messages(&[]).await.unwrap();
-        let filled_template =
-            ChatPromptTemplate::from_messages(&[(System, "This is a system message.")])
-                .await
-                .unwrap();
+        let empty_template = ChatTemplate::from_messages(&[]).await.unwrap();
+        let filled_template = ChatTemplate::from_messages(&[(System, "This is a system message.")])
+            .await
+            .unwrap();
 
         let combined_template = empty_template + filled_template;
 
@@ -423,11 +422,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_to_empty_template() {
-        let filled_template =
-            ChatPromptTemplate::from_messages(&[(System, "This is a system message.")])
-                .await
-                .unwrap();
-        let empty_template = ChatPromptTemplate::from_messages(&[]).await.unwrap();
+        let filled_template = ChatTemplate::from_messages(&[(System, "This is a system message.")])
+            .await
+            .unwrap();
+        let empty_template = ChatTemplate::from_messages(&[]).await.unwrap();
 
         let combined_template = filled_template + empty_template;
 

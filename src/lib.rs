@@ -20,8 +20,8 @@ pub use templatable::Templatable;
 pub mod template;
 pub use template::Template;
 
-pub mod chat_prompt_template;
-pub use chat_prompt_template::ChatPromptTemplate;
+pub mod chat_template;
+pub use chat_template::ChatTemplate;
 
 pub mod message_like;
 pub use message_like::MessageLike;
