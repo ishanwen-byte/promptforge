@@ -14,8 +14,8 @@ pub use template_format::TemplateFormat;
 
 pub mod vars;
 
-pub mod templatable;
-pub use templatable::Templatable;
+pub mod formatting;
+pub use formatting::{Formattable, Templatable};
 
 pub mod template;
 pub use template::Template;

@@ -1,9 +1,9 @@
 use crate::template_format::TemplateError;
-use crate::Templatable;
+use crate::{Formattable, Templatable};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-pub struct FewShotTemplate<T: Templatable + Send + Sync> {
+pub struct FewShotTemplate<T: Templatable + Formattable> {
     examples: Vec<T>,
     example_separator: String,
     prefix: Option<T>,
@@ -156,7 +156,6 @@ mod tests {
     use super::*;
     use crate::template_format::TemplateError;
     use crate::vars;
-    use crate::Templatable;
     use crate::Template;
 
     #[tokio::test]

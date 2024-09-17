@@ -4,8 +4,8 @@ use std::{collections::HashMap, ops::Add, sync::Arc};
 use messageforge::{BaseMessage, MessageEnum};
 
 use crate::{
-    message_like::MessageLike, MessagesPlaceholder, Role, Templatable, Template, TemplateError,
-    TemplateFormat,
+    message_like::MessageLike, Formattable, MessagesPlaceholder, Role, Templatable, Template,
+    TemplateError, TemplateFormat,
 };
 
 #[derive(Debug, Clone)]
@@ -274,8 +274,8 @@ mod tests {
         let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
         assert_eq!(chat_prompt.messages.len(), 3);
 
-        let variables = vars!(history = history_json.as_str(), name = "Bob");
-        let result = chat_prompt.invoke(&variables).await.unwrap();
+        let variables = &vars!(history = history_json.as_str(), name = "Bob");
+        let result = chat_prompt.invoke(variables).await.unwrap();
 
         assert_eq!(result.len(), 4);
         assert_eq!(result[0].content(), "This is a system message.");

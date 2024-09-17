@@ -10,7 +10,7 @@
 //!
 //! ```rust
 //! use promptforge::{Template, TemplateError, vars};
-//! use promptforge::Templatable;
+//! use promptforge::{Templatable, Formattable};
 //! use tokio;
 //!
 //! #[tokio::main]
@@ -27,7 +27,7 @@
 //! ### Mustache Template
 //!
 //! ```rust
-//! use promptforge::Templatable;
+//! use promptforge::{Templatable, Formattable};
 //! use promptforge::{Template, TemplateError, vars};
 //! use tokio;
 //!
@@ -45,7 +45,7 @@
 //! ### Handling Missing Variables
 //!
 //! ```rust
-//! use promptforge::Templatable;
+//! use promptforge::{Templatable, Formattable};
 //! use promptforge::{Template, TemplateError, vars};
 //! use tokio;
 //!
@@ -188,8 +188,8 @@ use std::collections::HashMap;
 use handlebars::Handlebars;
 use serde::{Deserialize, Serialize};
 
+use crate::formatting::{Formattable, Templatable};
 use crate::placeholder::extract_variables;
-use crate::templatable::Templatable;
 use crate::template_format::{
     detect_template, merge_vars, validate_template, TemplateError, TemplateFormat,
 };
@@ -303,7 +303,7 @@ impl Template {
     }
 }
 
-impl Templatable for Template {
+impl Formattable for Template {
     fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
         let merged_variables = merge_vars(&self.partials, variables);
         self.validate_variables(&merged_variables)?;
@@ -314,7 +314,9 @@ impl Templatable for Template {
             TemplateFormat::PlainText => Ok(self.template.clone()),
         }
     }
+}
 
+impl Templatable for Template {
     fn template(&self) -> &str {
         &self.template
     }
