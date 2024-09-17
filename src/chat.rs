@@ -1,5 +1,5 @@
 #[macro_export]
-macro_rules! chat_templates {
+macro_rules! chat {
     () => {
         {
             const EMPTY: &[(Role, &str)] = &[];
@@ -18,17 +18,17 @@ macro_rules! chat_templates {
 #[cfg(test)]
 mod tests {
     use crate::role::Role::{Ai, Human, System};
-    use crate::{chat_templates, Role};
+    use crate::{chat, Role};
 
     #[test]
     fn test_empty_list() {
-        let templates = chat_templates!();
+        let templates = chat!();
         assert_eq!(templates.len(), 0);
     }
 
     #[test]
     fn test_single_message() {
-        let templates = chat_templates!(System = "You are a helpful AI bot.");
+        let templates = chat!(System = "You are a helpful AI bot.");
 
         assert_eq!(templates.len(), 1);
         assert_eq!(templates[0].0, System);
@@ -37,7 +37,7 @@ mod tests {
 
     #[test]
     fn test_multiple_messages() {
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "You are a helpful AI bot.",
             Human = "Hello, how are you doing?",
             Ai = "I'm doing well, thanks!",
@@ -56,7 +56,7 @@ mod tests {
 
     #[test]
     fn test_variable_placeholders() {
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "You are a {adjective} AI bot. Your name is {name}.",
             Human = "What is your name?",
         );
@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn test_no_trailing_comma() {
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "You are a helpful AI bot.",
             Human = "Hello, how are you doing?"
         );
@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn test_trailing_comma() {
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "You are a helpful AI bot.",
             Human = "Hello, how are you doing?",
         );
@@ -104,7 +104,7 @@ mod tests {
 
     #[test]
     fn test_empty_template() {
-        let templates = chat_templates!(System = "", Human = "Hello!",);
+        let templates = chat!(System = "", Human = "Hello!",);
         assert_eq!(templates.len(), 2);
         assert_eq!(templates[0].0, System);
         assert_eq!(templates[0].1, "");

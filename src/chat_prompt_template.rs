@@ -135,11 +135,11 @@ mod tests {
     use super::*;
     use crate::message_like::MessageLike;
     use crate::Role::{Ai, Human, Placeholder, System};
-    use crate::{chat_templates, vars};
+    use crate::{chat, vars};
 
     #[tokio::test]
     async fn test_from_messages_plaintext() {
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "This is a system message.",
             Human = "Hello, human!",
         );
@@ -163,7 +163,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_from_messages_formatted_template() {
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "You are a helpful AI bot. Your name is {name}.",
             Ai = "I'm doing well, thank you.",
         );
@@ -191,7 +191,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_from_messages_placeholder() {
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "This is a valid system message.",
             Placeholder = "{history}",
         );
@@ -216,7 +216,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invoke_with_base_messages() {
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "This is a system message.",
             Human = "Hello, human!"
         );
@@ -235,7 +235,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invoke_with_role_prompt_template() {
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "System maintenance is scheduled.",
             Human = "Hello, {name}!"
         );
@@ -265,7 +265,7 @@ mod tests {
         ])
         .to_string();
 
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "This is a system message.",
             Placeholder = "{history}",
             Human = "How can I help you, {name}?"
@@ -288,7 +288,7 @@ mod tests {
     async fn test_invoke_with_invalid_json_history() {
         let invalid_history_json = "invalid json string";
 
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "This is a system message.",
             Placeholder = "{history}",
             Human = "How can I help you, {name}?"
@@ -303,14 +303,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_empty_templates() {
-        let templates = chat_templates!();
+        let templates = chat!();
         let chat_prompt = ChatPromptTemplate::from_messages(templates);
         assert!(chat_prompt.await.unwrap().messages.is_empty());
     }
 
     #[tokio::test]
     async fn test_invoke_with_empty_variables_map() {
-        let templates = chat_templates!(
+        let templates = chat!(
             System = "System maintenance is scheduled.",
             Human = "Hello, {name}!"
         );
@@ -324,7 +324,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invoke_with_multiple_placeholders_in_one_template() {
-        let templates = chat_templates!(
+        let templates = chat!(
             Human = "Hello, {name}. How are you on this {day}?",
             System = "Today is {day}. Have a great {day}."
         );
