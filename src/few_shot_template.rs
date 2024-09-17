@@ -137,9 +137,7 @@ impl<T: Templatable + Send + Sync> FewShotTemplateBuilder<T> {
     where
         I: IntoIterator<Item = T>,
     {
-        for example in examples {
-            self.examples.push(example);
-        }
+        self.examples.extend(examples);
         self
     }
 
