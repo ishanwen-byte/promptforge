@@ -263,7 +263,6 @@ impl Template {
     ) -> Result<(), TemplateError> {
         for var in &self.input_variables {
             let has_key = variables.contains_key(var.as_str());
-            dbg!(var, has_key);
             if !has_key {
                 return Err(TemplateError::MissingVariable(format!(
                     "Variable '{}' is missing. Expected: {:?}, but received: {:?}",
