@@ -18,7 +18,7 @@ impl MessagesPlaceholder {
         Self {
             variable_name,
             optional,
-            n_messages: if n_messages == 0 {
+            n_messages: if n_messages < 1 {
                 Self::DEFAULT_LIMIT
             } else {
                 n_messages
@@ -36,10 +36,6 @@ impl MessagesPlaceholder {
 
     pub fn n_messages(&self) -> usize {
         self.n_messages
-    }
-
-    pub fn set_n_messages(&mut self, n_messages: usize) {
-        self.n_messages = n_messages;
     }
 }
 
