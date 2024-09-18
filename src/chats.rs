@@ -1,15 +1,24 @@
 #[macro_export]
 macro_rules! chats {
+    // Empty case
     () => {
-        {
-            const EMPTY: &[(Role, &str)] = &[];
-            EMPTY
-        }
+        Vec::<(Role, String)>::new()
     };
+
+    // Handle the `Role = "message"` pattern
     ($($role:ident = $tmpl:expr),+ $(,)?) => {
-        &[
+        vec![
             $(
-                ($role, $tmpl),
+                ($role, $tmpl.to_string()),
+            )+
+        ]
+    };
+
+    // Handle the `Role, "message"` pattern
+    ($($role:ident, $tmpl:expr),+ $(,)?) => {
+        vec![
+            $(
+                ($role, $tmpl.to_string()),
             )+
         ]
     };

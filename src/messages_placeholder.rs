@@ -52,6 +52,15 @@ impl TryFrom<&str> for MessagesPlaceholder {
     }
 }
 
+impl TryFrom<String> for MessagesPlaceholder {
+    type Error = TemplateError;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        let placeholder_variable = extract_placeholder_variable(&s)?;
+        Ok(MessagesPlaceholder::new(placeholder_variable))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

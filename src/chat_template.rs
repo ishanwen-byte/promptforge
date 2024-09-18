@@ -14,22 +14,25 @@ pub struct ChatTemplate {
 }
 
 impl ChatTemplate {
-    pub async fn from_messages(messages: &[(Role, &str)]) -> Result<Self, TemplateError> {
+    pub async fn from_messages<I>(messages: I) -> Result<Self, TemplateError>
+    where
+        I: IntoIterator<Item = (Role, String)>,
+    {
         let mut result = Vec::new();
 
-        for &(role, tmpl) in messages {
+        for (role, tmpl) in messages {
             if role == Role::Placeholder {
                 let placeholder = MessagesPlaceholder::try_from(tmpl)?;
                 result.push(MessageLike::from_placeholder(placeholder));
                 continue;
             }
 
-            let prompt_template = Template::from_template(tmpl)?;
+            let prompt_template = Template::from_template(tmpl.as_str())?;
 
             match prompt_template.template_format() {
                 TemplateFormat::PlainText => {
                     let base_message = role
-                        .to_message(tmpl)
+                        .to_message(tmpl.as_str())
                         .map_err(|_| TemplateError::InvalidRoleError)?;
                     result.push(MessageLike::from_base_message(base_message))
                 }
@@ -344,10 +347,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_two_templates() {
-        let template1 = ChatTemplate::from_messages(&[(System, "You are a helpful AI bot.")])
+        let template1 = ChatTemplate::from_messages(chats!(System = "You are a helpful AI bot."))
             .await
             .unwrap();
-        let template2 = ChatTemplate::from_messages(&[(Human, "What is the weather today?")])
+        let template2 = ChatTemplate::from_messages(chats!(Human = "What is the weather today?"))
             .await
             .unwrap();
 
@@ -370,13 +373,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_multiple_templates() {
-        let system_template = ChatTemplate::from_messages(&[(System, "System message.")])
+        let system_template = ChatTemplate::from_messages(chats!(System = "System message."))
             .await
             .unwrap();
-        let user_template = ChatTemplate::from_messages(&[(Human, "User message.")])
+        let user_template = ChatTemplate::from_messages(chats!(Human = "User message."))
             .await
             .unwrap();
-        let ai_template = ChatTemplate::from_messages(&[(Ai, "AI message.")])
+        let ai_template = ChatTemplate::from_messages(chats!(Ai = "AI message."))
             .await
             .unwrap();
 
@@ -405,10 +408,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_empty_template() {
-        let empty_template = ChatTemplate::from_messages(&[]).await.unwrap();
-        let filled_template = ChatTemplate::from_messages(&[(System, "This is a system message.")])
-            .await
-            .unwrap();
+        let empty_template = ChatTemplate::from_messages(chats!()).await.unwrap();
+        let filled_template =
+            ChatTemplate::from_messages(chats!(System = "This is a system message."))
+                .await
+                .unwrap();
 
         let combined_template = empty_template + filled_template;
 
@@ -422,10 +426,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_to_empty_template() {
-        let filled_template = ChatTemplate::from_messages(&[(System, "This is a system message.")])
-            .await
-            .unwrap();
-        let empty_template = ChatTemplate::from_messages(&[]).await.unwrap();
+        let filled_template =
+            ChatTemplate::from_messages(chats!(System, "This is a system message."))
+                .await
+                .unwrap();
+        let empty_template = ChatTemplate::from_messages(chats!()).await.unwrap();
 
         let combined_template = filled_template + empty_template;
 
