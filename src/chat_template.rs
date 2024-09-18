@@ -67,12 +67,12 @@ impl ChatTemplate {
                     MessageLike::BaseMessage(base_message) => Ok(vec![base_message.clone()]),
 
                     MessageLike::RolePromptTemplate(role, template) => {
-                        let formatted_message = template
-                            .format(&variables.clone())
-                            .map_err(|e| TemplateError::MalformedTemplate(e.to_string()))?;
+                        let formatted_message = template.format(&variables.clone())?;
+
                         let base_message = role
                             .to_message(&formatted_message)
                             .map_err(|_| TemplateError::InvalidRoleError)?;
+
                         Ok(vec![base_message])
                     }
 
@@ -120,6 +120,22 @@ impl ChatTemplate {
             .into_iter()
             .collect::<Result<Vec<_>, _>>()
             .map(|vecs| vecs.into_iter().flatten().collect())
+    }
+}
+
+impl Formattable for ChatTemplate {
+    fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
+        // Use the existing format_messages method to format the chat messages
+        let formatted_messages = futures::executor::block_on(self.format_messages(variables))?;
+
+        // Combine all formatted messages into a single string, separated by newlines
+        let combined_result = formatted_messages
+            .iter()
+            .map(|message| message.content().to_string()) // Extract the content from each message
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        Ok(combined_result)
     }
 }
 
@@ -440,5 +456,191 @@ mod tests {
         } else {
             panic!("Expected a BaseMessage for the system message.");
         }
+    }
+
+    #[test]
+    fn test_format_with_basic_messages() {
+        let templates = chats!(
+            System = "System message.",
+            Human = "Hello, {name}!",
+            Ai = "Hi {name}, how can I assist you today?"
+        );
+
+        let chat_template =
+            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let variables = &vars!(name = "Alice");
+
+        let formatted_output = chat_template.format(variables).unwrap();
+
+        let expected_output = "\
+System message.
+Hello, Alice!
+Hi Alice, how can I assist you today?";
+
+        assert_eq!(formatted_output, expected_output);
+    }
+
+    #[test]
+    fn test_format_with_placeholders() {
+        let history_json = json!([
+            {
+                "role": "human",
+                "content": "What is the capital of France?",
+            },
+            {
+                "role": "ai",
+                "content": "The capital of France is Paris.",
+            }
+        ])
+        .to_string();
+
+        let templates = chats!(
+            System = "This is a system message.",
+            Placeholder = "{history}",
+            Human = "Can I help you with anything else, {name}?"
+        );
+
+        let chat_template =
+            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let variables = &vars!(history = history_json.as_str(), name = "Bob");
+
+        let formatted_output = chat_template.format(variables).unwrap();
+
+        let expected_output = "\
+This is a system message.
+What is the capital of France?
+The capital of France is Paris.
+Can I help you with anything else, Bob?";
+
+        assert_eq!(formatted_output, expected_output);
+    }
+
+    #[test]
+    fn test_format_with_empty_chat_template() {
+        let templates = chats!(); // Empty chat template
+
+        let chat_template =
+            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let variables = &vars!();
+
+        let formatted_output = chat_template.format(variables).unwrap();
+
+        // Expect an empty output as the chat template has no messages
+        let expected_output = "";
+        assert_eq!(formatted_output, expected_output);
+    }
+
+    #[test]
+    fn test_format_with_missing_variable_error() {
+        let templates = chats!(
+            System = "You are a helpful assistant.",
+            Human = "Hello, {name}.",
+            Ai = "How can I assist you today, {name}?"
+        );
+
+        let chat_template =
+            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        // Missing the "name" variable in the vars map
+        let variables = &vars!();
+
+        let result = chat_template.format(variables);
+
+        // Expect an error due to the missing "name" variable
+        assert!(result.is_err());
+        if let Err(TemplateError::MissingVariable(missing_var)) = result {
+            assert_eq!(
+                missing_var,
+                "Variable 'name' is missing. Expected: [\"name\"], but received: []"
+            );
+        } else {
+            panic!("Expected MissingVariable error");
+        }
+    }
+
+    #[test]
+    fn test_format_with_malformed_placeholder() {
+        let templates = chats!(
+            System = "System maintenance is scheduled.",
+            Placeholder = "{invalid_placeholder}",
+            Human = "Hello, {name}!"
+        );
+
+        let chat_template =
+            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let variables = &vars!(name = "Alice");
+
+        let result = chat_template.format(variables);
+
+        // Expect an error due to the invalid placeholder
+        assert!(result.is_err());
+        if let Err(TemplateError::MissingVariable(missing_var)) = result {
+            assert_eq!(missing_var, "invalid_placeholder");
+        } else {
+            panic!("Expected MissingVariable error");
+        }
+    }
+
+    #[test]
+    fn test_format_with_repeated_variables() {
+        let templates = chats!(
+            System = "Hello {name}.",
+            Ai = "{name}, how can I assist you today?"
+        );
+
+        let chat_template =
+            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let variables = &vars!(name = "Bob");
+
+        let formatted_output = chat_template.format(variables).unwrap();
+
+        let expected_output = "\
+Hello Bob.
+Bob, how can I assist you today?";
+
+        assert_eq!(formatted_output, expected_output);
+    }
+
+    #[test]
+    fn test_format_with_plain_text_messages() {
+        let templates = chats!(
+            System = "Welcome to the system.",
+            Human = "This is a plain text message.",
+            Ai = "No variables or placeholders here."
+        );
+
+        let chat_template =
+            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let variables = &vars!(); // No variables needed
+
+        let formatted_output = chat_template.format(variables).unwrap();
+
+        let expected_output = "\
+Welcome to the system.
+This is a plain text message.
+No variables or placeholders here.";
+
+        assert_eq!(formatted_output, expected_output);
+    }
+
+    #[test]
+    fn test_format_with_mixed_placeholders_and_plain_text() {
+        let templates = chats!(
+            System = "System notification: {event}.",
+            Ai = "You have {unread_messages} unread messages.",
+            Human = "Thanks, AI."
+        );
+
+        let chat_template =
+            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let variables = &vars!(event = "System update", unread_messages = "5");
+
+        let formatted_output = chat_template.format(variables).unwrap();
+
+        let expected_output = "\
+System notification: System update.
+You have 5 unread messages.
+Thanks, AI.";
+
+        assert_eq!(formatted_output, expected_output);
     }
 }
