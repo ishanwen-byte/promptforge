@@ -1,27 +1,49 @@
 use crate::template_format::TemplateError;
 use crate::{Formattable, Templatable};
 use std::collections::HashMap;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::marker::PhantomData;
 
 #[derive(Debug, Clone)]
-pub struct FewShotTemplate<T: Templatable + Formattable> {
+pub struct FewShotTemplate<T, K, V>
+where
+    T: Templatable<K, V> + Formattable<K, V>,
+    K: Into<String> + Hash + Eq,
+    V: Into<String> + Display,
+{
     examples: Vec<T>,
     example_separator: String,
     prefix: Option<T>,
     suffix: Option<T>,
+    phantom_k: std::marker::PhantomData<K>,
+    phantom_v: std::marker::PhantomData<V>,
 }
 
-impl<T: Templatable + Formattable> Default for FewShotTemplate<T> {
+impl<T, K, V> Default for FewShotTemplate<T, K, V>
+where
+    T: Templatable<K, V> + Formattable<K, V>,
+    K: Into<String> + Hash + Eq,
+    V: Into<String> + Display,
+{
     fn default() -> Self {
         Self {
             examples: Vec::new(),
             example_separator: Self::DEFAULT_EXAMPLE_SEPARATOR.to_string(),
             prefix: None,
             suffix: None,
+            phantom_k: PhantomData,
+            phantom_v: PhantomData,
         }
     }
 }
 
-impl<T: Templatable + Formattable> FewShotTemplate<T> {
+impl<T, K, V> FewShotTemplate<T, K, V>
+where
+    T: Templatable<K, V> + Formattable<K, V>,
+    K: Into<String> + Hash + Eq,
+    V: Into<String> + Display,
+{
     pub const DEFAULT_EXAMPLE_SEPARATOR: &'static str = "\n\n";
 
     pub fn new(examples: Vec<T>) -> Self {
@@ -42,14 +64,16 @@ impl<T: Templatable + Formattable> FewShotTemplate<T> {
             example_separator: example_separator.into(),
             prefix,
             suffix,
+            phantom_k: PhantomData,
+            phantom_v: PhantomData,
         }
     }
 
-    pub fn builder() -> FewShotTemplateBuilder<T> {
+    pub fn builder() -> FewShotTemplateBuilder<T, K, V> {
         FewShotTemplateBuilder::new()
     }
 
-    pub fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
+    pub fn format(&self, variables: &HashMap<K, V>) -> Result<String, TemplateError> {
         let prefix_str = if let Some(ref prefix_template) = self.prefix {
             prefix_template.format(variables)?
         } else {
@@ -90,25 +114,44 @@ impl<T: Templatable + Formattable> FewShotTemplate<T> {
 }
 
 #[derive(Debug)]
-pub struct FewShotTemplateBuilder<T: Templatable + Formattable> {
+pub struct FewShotTemplateBuilder<T, K, V>
+where
+    T: Templatable<K, V> + Formattable<K, V>,
+    K: Into<String> + Hash + Eq,
+    V: Into<String> + Display,
+{
     examples: Vec<T>,
     example_separator: String,
     prefix: Option<T>,
     suffix: Option<T>,
+    phantom_k: std::marker::PhantomData<K>,
+    phantom_v: std::marker::PhantomData<V>,
 }
 
-impl<T: Templatable + Formattable> Default for FewShotTemplateBuilder<T> {
+impl<T, K, V> Default for FewShotTemplateBuilder<T, K, V>
+where
+    T: Templatable<K, V> + Formattable<K, V>,
+    K: Into<String> + Hash + Eq,
+    V: Into<String> + Display,
+{
     fn default() -> Self {
         Self {
             prefix: None,
             suffix: None,
-            example_separator: FewShotTemplate::<T>::DEFAULT_EXAMPLE_SEPARATOR.to_string(),
+            example_separator: FewShotTemplate::<T, K, V>::DEFAULT_EXAMPLE_SEPARATOR.to_string(),
             examples: Vec::new(),
+            phantom_k: PhantomData,
+            phantom_v: PhantomData,
         }
     }
 }
 
-impl<T: Templatable + Formattable> FewShotTemplateBuilder<T> {
+impl<T, K, V> FewShotTemplateBuilder<T, K, V>
+where
+    T: Templatable<K, V> + Formattable<K, V>,
+    K: Into<String> + Hash + Eq,
+    V: Into<String> + Display,
+{
     pub fn new() -> Self {
         Self::default()
     }
@@ -141,12 +184,14 @@ impl<T: Templatable + Formattable> FewShotTemplateBuilder<T> {
         self
     }
 
-    pub fn build(self) -> FewShotTemplate<T> {
+    pub fn build(self) -> FewShotTemplate<T, K, V> {
         FewShotTemplate {
             examples: self.examples,
             example_separator: self.example_separator,
             prefix: self.prefix,
             suffix: self.suffix,
+            phantom_k: PhantomData,
+            phantom_v: PhantomData,
         }
     }
 }

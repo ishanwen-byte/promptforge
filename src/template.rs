@@ -183,10 +183,9 @@
 //!
 //! `Template` is a powerful and flexible tool for managing dynamic prompts in AI-driven systems. By supporting both FmtString and Mustache formats, it provides developers with the ability to create reusable, dynamic prompts that can be adapted to a wide range of use cases.
 
-use std::collections::HashMap;
-
 use handlebars::Handlebars;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::formatting::{Formattable, Templatable};
 use crate::placeholder::extract_variables;
@@ -303,7 +302,7 @@ impl Template {
     }
 }
 
-impl Formattable for Template {
+impl Formattable<&str, &str> for Template {
     fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
         let merged_variables = merge_vars(&self.partials, variables);
         self.validate_variables(&merged_variables)?;
@@ -316,7 +315,7 @@ impl Formattable for Template {
     }
 }
 
-impl Templatable for Template {
+impl Templatable<&str, &str> for Template {
     fn template(&self) -> &str {
         &self.template
     }
