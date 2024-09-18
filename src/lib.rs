@@ -9,6 +9,7 @@ pub use placeholder::extract_variables;
 pub use placeholder::is_valid_identifier;
 
 pub mod template_format;
+pub use template_format::merge_vars;
 pub use template_format::TemplateError;
 pub use template_format::TemplateFormat;
 
