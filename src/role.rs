@@ -14,6 +14,14 @@ pub enum Role {
 #[derive(Debug, PartialEq, Eq)]
 pub struct InvalidRoleError;
 
+impl fmt::Display for InvalidRoleError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Invalid role provided")
+    }
+}
+
+impl std::error::Error for InvalidRoleError {}
+
 impl TryFrom<&str> for Role {
     type Error = InvalidRoleError;
 
@@ -60,9 +68,18 @@ impl fmt::Display for Role {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use messageforge::BaseMessage;
 
-    use super::*;
+    fn test_message_creation(role: Role, content: &str) {
+        let result = role.to_message(content).unwrap();
+        assert_eq!(result.content(), content);
+    }
+
+    fn test_invalid_message_creation(role: Role, content: &str) {
+        let result = role.to_message(content);
+        assert_eq!(result.unwrap_err(), InvalidRoleError);
+    }
 
     #[test]
     fn test_role_to_string() {
@@ -85,45 +102,43 @@ mod tests {
 
     #[test]
     fn test_system_message_creation() {
-        let role = Role::System;
-        let content = "This is a system message.";
-        let result = role.to_message(content).unwrap();
-        let message = result.as_system().unwrap();
-        assert_eq!(message.content(), content);
+        test_message_creation(Role::System, "This is a system message.");
     }
 
     #[test]
     fn test_human_message_creation() {
-        let role = Role::Human;
-        let content = "This is a human message.";
-        let result = role.to_message(content);
-        let message = result.unwrap();
-        assert_eq!(message.content(), content);
+        test_message_creation(Role::Human, "This is a human message.");
     }
 
     #[test]
     fn test_ai_message_creation() {
-        let role = Role::Ai;
-        let content = "This is an AI message.";
-        let result = role.to_message(content);
-        let message = result.unwrap();
-        assert_eq!(message.content(), content);
+        test_message_creation(Role::Ai, "This is an AI message.");
     }
 
     #[test]
     fn test_tool_message_creation() {
-        let role = Role::Tool;
-        let content = "This is a tool message.";
-        let result = role.to_message(content);
-        assert_eq!(result.unwrap_err(), InvalidRoleError);
+        test_invalid_message_creation(Role::Tool, "This is a tool message.");
     }
 
     #[test]
-    fn test_invalid_role() {
-        let role = Role::Placeholder;
-        let content = "This is a placeholder message.";
-        let result = role.to_message(content);
+    fn test_placeholder_message_creation() {
+        test_invalid_message_creation(Role::Placeholder, "This is a placeholder message.");
+    }
 
-        assert_eq!(result.unwrap_err(), InvalidRoleError);
+    #[test]
+    fn test_invalid_role_message() {
+        let result = Role::try_from("invalid");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_message_creation() {
+        test_message_creation(Role::Ai, "");
+    }
+
+    #[test]
+    fn test_case_insensitivity() {
+        assert_eq!(Role::try_from("HUMAN").unwrap(), Role::Human);
+        assert_eq!(Role::try_from("AI").unwrap(), Role::Ai);
     }
 }
