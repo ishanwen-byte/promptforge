@@ -1,11 +1,14 @@
+use crate::{braces::has_multiple_words_between_braces, TemplateError};
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::collections::HashSet;
 
-use crate::{braces::has_multiple_words_between_braces, TemplateError};
-use regex::Regex;
+lazy_static! {
+    static ref IDENTIFIER_RE: Regex = Regex::new(r"^[a-zA-Z_][a-zA-Z0-9_]*$").unwrap();
+}
 
 pub fn is_valid_identifier(s: &str) -> bool {
-    let re = Regex::new(r"^[a-zA-Z_][a-zA-Z0-9_]*$").unwrap();
-    re.is_match(s)
+    IDENTIFIER_RE.is_match(s)
 }
 
 pub fn extract_variables(template: &str) -> Vec<String> {
