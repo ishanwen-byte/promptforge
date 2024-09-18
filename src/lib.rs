@@ -24,6 +24,7 @@ pub mod chat_template;
 pub use chat_template::ChatTemplate;
 
 pub mod message_like;
+pub use message_like::ArcMessageEnumExt;
 pub use message_like::MessageLike;
 
 pub mod chats;

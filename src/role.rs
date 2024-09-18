@@ -1,6 +1,6 @@
 use std::{convert::TryFrom, fmt, sync::Arc};
 
-use messageforge::{AiMessage, BaseMessage, HumanMessage, SystemMessage};
+use messageforge::{AiMessage, HumanMessage, MessageEnum, SystemMessage};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Role {
@@ -40,13 +40,15 @@ impl Role {
         }
     }
 
-    pub fn to_message(self, content: &str) -> Result<Arc<dyn BaseMessage>, InvalidRoleError> {
-        match self {
-            Role::System => Ok(Arc::new(SystemMessage::new(content))),
-            Role::Human => Ok(Arc::new(HumanMessage::new(content))),
-            Role::Ai => Ok(Arc::new(AiMessage::new(content))),
-            _ => Err(InvalidRoleError),
-        }
+    pub fn to_message(self, content: &str) -> Result<Arc<MessageEnum>, InvalidRoleError> {
+        let message_enum = match self {
+            Role::System => MessageEnum::System(SystemMessage::new(content)),
+            Role::Human => MessageEnum::Human(HumanMessage::new(content)),
+            Role::Ai => MessageEnum::Ai(AiMessage::new(content)),
+            _ => return Err(InvalidRoleError),
+        };
+
+        Ok(Arc::new(message_enum))
     }
 }
 
@@ -58,6 +60,8 @@ impl fmt::Display for Role {
 
 #[cfg(test)]
 mod tests {
+    use messageforge::BaseMessage;
+
     use super::*;
 
     #[test]
@@ -83,8 +87,8 @@ mod tests {
     fn test_system_message_creation() {
         let role = Role::System;
         let content = "This is a system message.";
-        let result = role.to_message(content);
-        let message = result.unwrap();
+        let result = role.to_message(content).unwrap();
+        let message = result.as_system().unwrap();
         assert_eq!(message.content(), content);
     }
 

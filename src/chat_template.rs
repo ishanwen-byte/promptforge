@@ -4,8 +4,8 @@ use std::{collections::HashMap, ops::Add, sync::Arc};
 use messageforge::{BaseMessage, MessageEnum};
 
 use crate::{
-    message_like::MessageLike, Formattable, MessagesPlaceholder, Role, Templatable, Template,
-    TemplateError, TemplateFormat,
+    message_like::{ArcMessageEnumExt, MessageLike},
+    Formattable, MessagesPlaceholder, Role, Templatable, Template, TemplateError, TemplateFormat,
 };
 
 #[derive(Debug, Clone)]
@@ -34,7 +34,7 @@ impl ChatTemplate {
                     let base_message = role
                         .to_message(tmpl.as_str())
                         .map_err(|_| TemplateError::InvalidRoleError)?;
-                    result.push(MessageLike::from_base_message(base_message))
+                    result.push(MessageLike::from_base_message(base_message.unwrap_enum()));
                 }
                 _ => {
                     result.push(MessageLike::from_role_prompt_template(
@@ -51,14 +51,14 @@ impl ChatTemplate {
     pub async fn invoke(
         &self,
         variables: &HashMap<&str, &str>,
-    ) -> Result<Vec<Arc<dyn BaseMessage>>, TemplateError> {
+    ) -> Result<Vec<Arc<MessageEnum>>, TemplateError> {
         self.format_messages(variables).await
     }
 
     pub async fn format_messages(
         &self,
         variables: &HashMap<&str, &str>,
-    ) -> Result<Vec<Arc<dyn BaseMessage>>, TemplateError> {
+    ) -> Result<Vec<Arc<MessageEnum>>, TemplateError> {
         let futures: Vec<_> = self
             .messages
             .iter()
@@ -104,10 +104,7 @@ impl ChatTemplate {
                                 deserialized_messages
                             };
 
-                            Ok(limited_messages
-                                .into_iter()
-                                .map(|message_enum| Arc::new(message_enum) as Arc<dyn BaseMessage>)
-                                .collect())
+                            Ok(limited_messages.into_iter().map(Arc::new).collect())
                         }
                     }
                 }
