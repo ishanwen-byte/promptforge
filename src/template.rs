@@ -297,7 +297,7 @@ impl Template {
             )),
             Some(handlebars) => handlebars
                 .render(Self::MUSTACHE_TEMPLATE, variables)
-                .map_err(TemplateError::RenderError),
+                .map_err(TemplateError::RuntimeError),
         }
     }
 }

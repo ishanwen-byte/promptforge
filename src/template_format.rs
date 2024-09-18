@@ -16,7 +16,7 @@ pub enum TemplateError {
     MalformedTemplate(String),
     UnsupportedFormat(String),
     MissingVariable(String),
-    RenderError(RenderError),
+    RuntimeError(RenderError),
     InvalidRoleError,
 }
 
@@ -28,7 +28,7 @@ impl From<InvalidRoleError> for TemplateError {
 
 impl From<RenderError> for TemplateError {
     fn from(err: RenderError) -> Self {
-        TemplateError::RenderError(err)
+        TemplateError::RuntimeError(err)
     }
 }
 
@@ -38,7 +38,7 @@ impl std::fmt::Display for TemplateError {
             TemplateError::MalformedTemplate(msg) => write!(f, "Malformed template: {}", msg),
             TemplateError::UnsupportedFormat(msg) => write!(f, "Unsupported format: {}", msg),
             TemplateError::MissingVariable(msg) => write!(f, "Missing variable: {}", msg),
-            TemplateError::RenderError(err) => write!(f, "Render error: {}", err),
+            TemplateError::RuntimeError(err) => write!(f, "Render error: {}", err),
             TemplateError::InvalidRoleError => write!(f, "Invalid role error"),
         }
     }
@@ -52,7 +52,7 @@ impl TemplateError {
             (TemplateError::MissingVariable(a), TemplateError::MissingVariable(b)) => a == b,
             (TemplateError::MalformedTemplate(a), TemplateError::MalformedTemplate(b)) => a == b,
             (TemplateError::UnsupportedFormat(a), TemplateError::UnsupportedFormat(b)) => a == b,
-            (TemplateError::RenderError(_), TemplateError::RenderError(_)) => true,
+            (TemplateError::RuntimeError(_), TemplateError::RuntimeError(_)) => true,
             (TemplateError::InvalidRoleError, TemplateError::InvalidRoleError) => true,
             _ => false,
         }
