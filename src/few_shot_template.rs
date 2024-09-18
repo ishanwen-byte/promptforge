@@ -10,7 +10,7 @@ pub struct FewShotTemplate<T: Templatable + Formattable> {
     suffix: Option<T>,
 }
 
-impl<T: Templatable + Send + Sync> Default for FewShotTemplate<T> {
+impl<T: Templatable + Formattable> Default for FewShotTemplate<T> {
     fn default() -> Self {
         Self {
             examples: Vec::new(),
@@ -21,7 +21,7 @@ impl<T: Templatable + Send + Sync> Default for FewShotTemplate<T> {
     }
 }
 
-impl<T: Templatable + Send + Sync> FewShotTemplate<T> {
+impl<T: Templatable + Formattable> FewShotTemplate<T> {
     pub const DEFAULT_EXAMPLE_SEPARATOR: &'static str = "\n\n";
 
     pub fn new(examples: Vec<T>) -> Self {
@@ -90,14 +90,14 @@ impl<T: Templatable + Send + Sync> FewShotTemplate<T> {
 }
 
 #[derive(Debug)]
-pub struct FewShotTemplateBuilder<T: Templatable + Send + Sync> {
+pub struct FewShotTemplateBuilder<T: Templatable + Formattable> {
     examples: Vec<T>,
     example_separator: String,
     prefix: Option<T>,
     suffix: Option<T>,
 }
 
-impl<T: Templatable + Send + Sync> Default for FewShotTemplateBuilder<T> {
+impl<T: Templatable + Formattable> Default for FewShotTemplateBuilder<T> {
     fn default() -> Self {
         Self {
             prefix: None,
@@ -108,7 +108,7 @@ impl<T: Templatable + Send + Sync> Default for FewShotTemplateBuilder<T> {
     }
 }
 
-impl<T: Templatable + Send + Sync> FewShotTemplateBuilder<T> {
+impl<T: Templatable + Formattable> FewShotTemplateBuilder<T> {
     pub fn new() -> Self {
         Self::default()
     }
