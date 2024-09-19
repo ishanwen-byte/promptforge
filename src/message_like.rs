@@ -1,7 +1,7 @@
 use crate::role::Role;
 use crate::template::Template;
 use crate::MessagesPlaceholder;
-use messageforge::{AiMessage, HumanMessage, MessageEnum, SystemMessage};
+use messageforge::{AiMessage, HumanMessage, MessageEnum, SystemMessage, ToolMessage};
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -24,28 +24,31 @@ impl MessageLike {
         MessageLike::Placeholder(placeholder)
     }
 
-    pub fn as_human(&self) -> Option<&HumanMessage> {
+    fn match_message_enum<T>(
+        &self,
+        extract_message: impl Fn(&MessageEnum) -> Option<&T>,
+    ) -> Option<&T> {
         if let MessageLike::BaseMessage(ref message_enum) = self {
-            message_enum.as_human()
+            extract_message(message_enum)
         } else {
             None
         }
+    }
+
+    pub fn as_human(&self) -> Option<&HumanMessage> {
+        self.match_message_enum(MessageEnum::as_human)
     }
 
     pub fn as_ai(&self) -> Option<&AiMessage> {
-        if let MessageLike::BaseMessage(ref message_enum) = self {
-            message_enum.as_ai()
-        } else {
-            None
-        }
+        self.match_message_enum(MessageEnum::as_ai)
     }
 
     pub fn as_system(&self) -> Option<&SystemMessage> {
-        if let MessageLike::BaseMessage(ref message_enum) = self {
-            message_enum.as_system()
-        } else {
-            None
-        }
+        self.match_message_enum(MessageEnum::as_system)
+    }
+
+    pub fn as_tool(&self) -> Option<&ToolMessage> {
+        self.match_message_enum(MessageEnum::as_tool)
     }
 }
 
