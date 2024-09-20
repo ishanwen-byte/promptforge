@@ -16,8 +16,7 @@ where
     example_separator: String,
     prefix: Option<T>,
     suffix: Option<T>,
-    phantom_k: std::marker::PhantomData<K>,
-    phantom_v: std::marker::PhantomData<V>,
+    _phantom_kv: std::marker::PhantomData<(K, V)>,
 }
 
 impl<T, K, V> Default for FewShotTemplate<T, K, V>
@@ -32,8 +31,7 @@ where
             example_separator: Self::DEFAULT_EXAMPLE_SEPARATOR.to_string(),
             prefix: None,
             suffix: None,
-            phantom_k: PhantomData,
-            phantom_v: PhantomData,
+            _phantom_kv: PhantomData,
         }
     }
 }
@@ -64,8 +62,7 @@ where
             example_separator: example_separator.into(),
             prefix,
             suffix,
-            phantom_k: PhantomData,
-            phantom_v: PhantomData,
+            _phantom_kv: PhantomData,
         }
     }
 
@@ -190,8 +187,7 @@ where
             example_separator: self.example_separator,
             prefix: self.prefix,
             suffix: self.suffix,
-            phantom_k: PhantomData,
-            phantom_v: PhantomData,
+            _phantom_kv: PhantomData,
         }
     }
 }
