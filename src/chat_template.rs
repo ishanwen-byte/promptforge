@@ -14,7 +14,7 @@ pub struct ChatTemplate {
 }
 
 impl ChatTemplate {
-    pub async fn from_messages<I>(messages: I) -> Result<Self, TemplateError>
+    pub fn from_messages<I>(messages: I) -> Result<Self, TemplateError>
     where
         I: IntoIterator<Item = (Role, String)>,
     {
@@ -160,7 +160,7 @@ mod tests {
             Human = "Hello, human!",
         );
 
-        let chat_prompt = ChatTemplate::from_messages(templates).await;
+        let chat_prompt = ChatTemplate::from_messages(templates);
         let chat_prompt = chat_prompt.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
@@ -184,7 +184,7 @@ mod tests {
             Ai = "I'm doing well, thank you.",
         );
 
-        let chat_prompt = ChatTemplate::from_messages(templates).await;
+        let chat_prompt = ChatTemplate::from_messages(templates);
         let chat_prompt = chat_prompt.unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
@@ -212,7 +212,7 @@ mod tests {
             Placeholder = "{history}",
         );
 
-        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
         if let MessageLike::BaseMessage(system_message) = &chat_prompt.messages[0] {
@@ -237,7 +237,7 @@ mod tests {
             Human = "Hello, human!"
         );
 
-        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).unwrap();
 
         assert_eq!(chat_prompt.messages.len(), 2);
 
@@ -256,7 +256,7 @@ mod tests {
             Human = "Hello, {name}!"
         );
 
-        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).unwrap();
         assert_eq!(chat_prompt.messages.len(), 2);
 
         let variables = vars!(name = "Alice");
@@ -287,7 +287,7 @@ mod tests {
             Human = "How can I help you, {name}?"
         );
 
-        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).unwrap();
         assert_eq!(chat_prompt.messages.len(), 3);
 
         let variables = &vars!(history = history_json.as_str(), name = "Bob");
@@ -310,7 +310,7 @@ mod tests {
             Human = "How can I help you, {name}?"
         );
 
-        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).unwrap();
         let variables = vars!(history = invalid_history_json, name = "Bob");
 
         let result = chat_prompt.invoke(&variables).await;
@@ -321,7 +321,7 @@ mod tests {
     async fn test_empty_templates() {
         let templates = chats!();
         let chat_prompt = ChatTemplate::from_messages(templates);
-        assert!(chat_prompt.await.unwrap().messages.is_empty());
+        assert!(chat_prompt.unwrap().messages.is_empty());
     }
 
     #[tokio::test]
@@ -331,7 +331,7 @@ mod tests {
             Human = "Hello, {name}!"
         );
 
-        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).unwrap();
         let variables = vars!();
 
         let result = chat_prompt.invoke(&variables).await;
@@ -345,7 +345,7 @@ mod tests {
             System = "Today is {day}. Have a great {day}."
         );
 
-        let chat_prompt = ChatTemplate::from_messages(templates).await.unwrap();
+        let chat_prompt = ChatTemplate::from_messages(templates).unwrap();
         let variables = vars!(name = "Alice", day = "Monday");
 
         let result = chat_prompt.invoke(&variables).await.unwrap();
@@ -360,12 +360,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_two_templates() {
-        let template1 = ChatTemplate::from_messages(chats!(System = "You are a helpful AI bot."))
-            .await
-            .unwrap();
-        let template2 = ChatTemplate::from_messages(chats!(Human = "What is the weather today?"))
-            .await
-            .unwrap();
+        let template1 =
+            ChatTemplate::from_messages(chats!(System = "You are a helpful AI bot.")).unwrap();
+        let template2 =
+            ChatTemplate::from_messages(chats!(Human = "What is the weather today?")).unwrap();
 
         let combined_template = template1 + template2;
 
@@ -386,15 +384,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_multiple_templates() {
-        let system_template = ChatTemplate::from_messages(chats!(System = "System message."))
-            .await
-            .unwrap();
-        let user_template = ChatTemplate::from_messages(chats!(Human = "User message."))
-            .await
-            .unwrap();
-        let ai_template = ChatTemplate::from_messages(chats!(Ai = "AI message."))
-            .await
-            .unwrap();
+        let system_template =
+            ChatTemplate::from_messages(chats!(System = "System message.")).unwrap();
+        let user_template = ChatTemplate::from_messages(chats!(Human = "User message.")).unwrap();
+        let ai_template = ChatTemplate::from_messages(chats!(Ai = "AI message.")).unwrap();
 
         let combined_template = system_template + user_template + ai_template;
 
@@ -421,11 +414,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_empty_template() {
-        let empty_template = ChatTemplate::from_messages(chats!()).await.unwrap();
+        let empty_template = ChatTemplate::from_messages(chats!()).unwrap();
         let filled_template =
-            ChatTemplate::from_messages(chats!(System = "This is a system message."))
-                .await
-                .unwrap();
+            ChatTemplate::from_messages(chats!(System = "This is a system message.")).unwrap();
 
         let combined_template = empty_template + filled_template;
 
@@ -440,10 +431,8 @@ mod tests {
     #[tokio::test]
     async fn test_add_to_empty_template() {
         let filled_template =
-            ChatTemplate::from_messages(chats!(System, "This is a system message."))
-                .await
-                .unwrap();
-        let empty_template = ChatTemplate::from_messages(chats!()).await.unwrap();
+            ChatTemplate::from_messages(chats!(System, "This is a system message.")).unwrap();
+        let empty_template = ChatTemplate::from_messages(chats!()).unwrap();
 
         let combined_template = filled_template + empty_template;
 
@@ -463,8 +452,7 @@ mod tests {
             Ai = "Hi {name}, how can I assist you today?"
         );
 
-        let chat_template =
-            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let chat_template = ChatTemplate::from_messages(templates).unwrap();
         let variables = &vars!(name = "Alice");
 
         let formatted_output = chat_template.format(variables).unwrap();
@@ -497,8 +485,7 @@ Hi Alice, how can I assist you today?";
             Human = "Can I help you with anything else, {name}?"
         );
 
-        let chat_template =
-            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let chat_template = ChatTemplate::from_messages(templates).unwrap();
         let variables = &vars!(history = history_json.as_str(), name = "Bob");
 
         let formatted_output = chat_template.format(variables).unwrap();
@@ -516,8 +503,7 @@ Can I help you with anything else, Bob?";
     fn test_format_with_empty_chat_template() {
         let templates = chats!(); // Empty chat template
 
-        let chat_template =
-            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let chat_template = ChatTemplate::from_messages(templates).unwrap();
         let variables = &vars!();
 
         let formatted_output = chat_template.format(variables).unwrap();
@@ -535,8 +521,7 @@ Can I help you with anything else, Bob?";
             Ai = "How can I assist you today, {name}?"
         );
 
-        let chat_template =
-            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let chat_template = ChatTemplate::from_messages(templates).unwrap();
         // Missing the "name" variable in the vars map
         let variables = &vars!();
 
@@ -562,8 +547,7 @@ Can I help you with anything else, Bob?";
             Human = "Hello, {name}!"
         );
 
-        let chat_template =
-            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let chat_template = ChatTemplate::from_messages(templates).unwrap();
         let variables = &vars!(name = "Alice");
 
         let result = chat_template.format(variables);
@@ -584,8 +568,7 @@ Can I help you with anything else, Bob?";
             Ai = "{name}, how can I assist you today?"
         );
 
-        let chat_template =
-            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let chat_template = ChatTemplate::from_messages(templates).unwrap();
         let variables = &vars!(name = "Bob");
 
         let formatted_output = chat_template.format(variables).unwrap();
@@ -605,8 +588,7 @@ Bob, how can I assist you today?";
             Ai = "No variables or placeholders here."
         );
 
-        let chat_template =
-            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let chat_template = ChatTemplate::from_messages(templates).unwrap();
         let variables = &vars!(); // No variables needed
 
         let formatted_output = chat_template.format(variables).unwrap();
@@ -627,8 +609,7 @@ No variables or placeholders here.";
             Human = "Thanks, AI."
         );
 
-        let chat_template =
-            futures::executor::block_on(ChatTemplate::from_messages(templates)).unwrap();
+        let chat_template = ChatTemplate::from_messages(templates).unwrap();
         let variables = &vars!(event = "System update", unread_messages = "5");
 
         let formatted_output = chat_template.format(variables).unwrap();
