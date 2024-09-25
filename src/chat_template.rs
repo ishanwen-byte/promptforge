@@ -120,7 +120,7 @@ impl ChatTemplate {
     }
 }
 
-impl Formattable<&str, &str> for ChatTemplate {
+impl Formattable for ChatTemplate {
     fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
         // Use the existing format_messages method to format the chat messages
         let formatted_messages = futures::executor::block_on(self.format_messages(variables))?;

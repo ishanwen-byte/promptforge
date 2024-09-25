@@ -1,29 +1,18 @@
 use crate::template_format::TemplateError;
 use crate::{Formattable, Templatable};
 use std::collections::HashMap;
-use std::fmt::Display;
-use std::hash::Hash;
-use std::marker::PhantomData;
 
 #[derive(Debug, Clone)]
-pub struct FewShotTemplate<T, K, V>
-where
-    T: Templatable<K, V> + Formattable<K, V>,
-    K: Into<String> + Hash + Eq,
-    V: Into<String> + Display,
-{
+pub struct FewShotTemplate<T: Templatable + Formattable> {
     examples: Vec<T>,
     example_separator: String,
     prefix: Option<T>,
     suffix: Option<T>,
-    _phantom_kv: std::marker::PhantomData<(K, V)>,
 }
 
-impl<T, K, V> Default for FewShotTemplate<T, K, V>
+impl<T> Default for FewShotTemplate<T>
 where
-    T: Templatable<K, V> + Formattable<K, V>,
-    K: Into<String> + Hash + Eq,
-    V: Into<String> + Display,
+    T: Templatable + Formattable,
 {
     fn default() -> Self {
         Self {
@@ -31,16 +20,13 @@ where
             example_separator: Self::DEFAULT_EXAMPLE_SEPARATOR.to_string(),
             prefix: None,
             suffix: None,
-            _phantom_kv: PhantomData,
         }
     }
 }
 
-impl<T, K, V> FewShotTemplate<T, K, V>
+impl<T> FewShotTemplate<T>
 where
-    T: Templatable<K, V> + Formattable<K, V>,
-    K: Into<String> + Hash + Eq,
-    V: Into<String> + Display,
+    T: Templatable + Formattable,
 {
     pub const DEFAULT_EXAMPLE_SEPARATOR: &'static str = "\n\n";
 
@@ -62,15 +48,14 @@ where
             example_separator: example_separator.into(),
             prefix,
             suffix,
-            _phantom_kv: PhantomData,
         }
     }
 
-    pub fn builder() -> FewShotTemplateBuilder<T, K, V> {
+    pub fn builder() -> FewShotTemplateBuilder<T> {
         FewShotTemplateBuilder::new()
     }
 
-    pub fn format(&self, variables: &HashMap<K, V>) -> Result<String, TemplateError> {
+    pub fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
         let prefix_str = if let Some(ref prefix_template) = self.prefix {
             prefix_template.format(variables)?
         } else {
@@ -111,43 +96,33 @@ where
 }
 
 #[derive(Debug)]
-pub struct FewShotTemplateBuilder<T, K, V>
+pub struct FewShotTemplateBuilder<T>
 where
-    T: Templatable<K, V> + Formattable<K, V>,
-    K: Into<String> + Hash + Eq,
-    V: Into<String> + Display,
+    T: Templatable + Formattable,
 {
     examples: Vec<T>,
     example_separator: String,
     prefix: Option<T>,
     suffix: Option<T>,
-    phantom_k: std::marker::PhantomData<K>,
-    phantom_v: std::marker::PhantomData<V>,
 }
 
-impl<T, K, V> Default for FewShotTemplateBuilder<T, K, V>
+impl<T> Default for FewShotTemplateBuilder<T>
 where
-    T: Templatable<K, V> + Formattable<K, V>,
-    K: Into<String> + Hash + Eq,
-    V: Into<String> + Display,
+    T: Templatable + Formattable,
 {
     fn default() -> Self {
         Self {
             prefix: None,
             suffix: None,
-            example_separator: FewShotTemplate::<T, K, V>::DEFAULT_EXAMPLE_SEPARATOR.to_string(),
+            example_separator: FewShotTemplate::<T>::DEFAULT_EXAMPLE_SEPARATOR.to_string(),
             examples: Vec::new(),
-            phantom_k: PhantomData,
-            phantom_v: PhantomData,
         }
     }
 }
 
-impl<T, K, V> FewShotTemplateBuilder<T, K, V>
+impl<T> FewShotTemplateBuilder<T>
 where
-    T: Templatable<K, V> + Formattable<K, V>,
-    K: Into<String> + Hash + Eq,
-    V: Into<String> + Display,
+    T: Templatable + Formattable,
 {
     pub fn new() -> Self {
         Self::default()
@@ -181,13 +156,12 @@ where
         self
     }
 
-    pub fn build(self) -> FewShotTemplate<T, K, V> {
+    pub fn build(self) -> FewShotTemplate<T> {
         FewShotTemplate {
             examples: self.examples,
             example_separator: self.example_separator,
             prefix: self.prefix,
             suffix: self.suffix,
-            _phantom_kv: PhantomData,
         }
     }
 }

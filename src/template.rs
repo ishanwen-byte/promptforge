@@ -302,7 +302,7 @@ impl Template {
     }
 }
 
-impl Formattable<&str, &str> for Template {
+impl Formattable for Template {
     fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
         let merged_variables = merge_vars(&self.partials, variables);
         self.validate_variables(&merged_variables)?;
@@ -315,7 +315,7 @@ impl Formattable<&str, &str> for Template {
     }
 }
 
-impl Templatable<&str, &str> for Template {
+impl Templatable for Template {
     fn template(&self) -> &str {
         &self.template
     }
