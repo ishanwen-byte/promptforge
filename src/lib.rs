@@ -38,3 +38,8 @@ pub use messages_placeholder::MessagesPlaceholder;
 
 pub mod few_shot_template;
 pub use few_shot_template::FewShotTemplate;
+
+pub mod few_shot_chat_template;
+pub use few_shot_chat_template::FewShotChatTemplate;
+
+pub mod examples;
