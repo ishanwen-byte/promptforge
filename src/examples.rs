@@ -1,22 +1,13 @@
 #[macro_export]
 macro_rules! examples {
-    // Empty case
     () => {
-        Vec::<$crate::ChatTemplate>::new()
+        Vec::<$crate::Template>::new()
     };
-
-    // Handle the `examples!(Human="...", Ai="...")` pattern
-    ($($role:ident = $tmpl:expr),+ $(,)?) => {
-        vec![
-            $crate::ChatTemplate::from_messages($crate::chats!($($role = $tmpl),+)).unwrap(),
-        ]
-    };
-
-    // Handle the `examples!((Human="...", Ai="..."), ...)` pattern
-    ($(($($role:ident = $tmpl:expr),+)),+ $(,)?) => {
+    ($(($input:expr, $output:expr)),+ $(,)?) => {
         vec![
             $(
-                $crate::ChatTemplate::from_messages($crate::chats!($($role = $tmpl),+)).unwrap(),
+                $crate::Template::new(&format!("{}\n{}", $input, $output))
+                    .expect("Failed to create Template"),
             )+
         ]
     };
@@ -24,142 +15,102 @@ macro_rules! examples {
 
 #[cfg(test)]
 mod tests {
-    use messageforge::{BaseMessage, MessageEnum};
-
-    use crate::Role::{Ai, Human};
-    use crate::{examples, MessageLike};
+    use crate::Templatable;
 
     #[test]
-    fn test_examples_empty() {
-        // Testing empty examples case
-        let result = examples!();
-        assert!(
-            result.is_empty(),
-            "Expected an empty vector of ChatTemplate"
+    fn test_examples_macro_with_multiple_entries() {
+        let examples = examples![
+            ("{input} What is 2 + 2?", "{output} 4"),
+            ("{input} What is 3 + 3?", "{output} 6"),
+        ];
+
+        assert_eq!(examples.len(), 2);
+        assert_eq!(examples[0].template(), "{input} What is 2 + 2?\n{output} 4");
+        assert_eq!(examples[1].template(), "{input} What is 3 + 3?\n{output} 6");
+    }
+
+    #[test]
+    fn test_examples_macro_with_single_entry() {
+        let examples = examples![("{input} What is the capital of France?", "{output} Paris"),];
+
+        assert_eq!(examples.len(), 1);
+        assert_eq!(
+            examples[0].template(),
+            "{input} What is the capital of France?\n{output} Paris"
         );
     }
 
     #[test]
-    fn test_examples_with_single_example() {
-        // Testing examples with a single example (Human and Ai roles)
-        let result = examples!(Human = "Hello", Ai = "Hi");
+    fn test_examples_macro_with_empty_input() {
+        let examples = examples![];
 
-        assert_eq!(result.len(), 1, "Expected one ChatTemplate");
-
-        let chat_template = &result[0];
-        assert_eq!(
-            chat_template.messages.len(),
-            2,
-            "Expected two messages in the template"
-        );
-
-        // Check the content of messages
-        if let MessageLike::BaseMessage(base_message) = &chat_template.messages[0] {
-            if let MessageEnum::Human(human_message) = base_message.as_ref() {
-                assert_eq!(
-                    human_message.content(),
-                    "Hello",
-                    "Expected Human message content to be 'Hello'"
-                );
-            } else {
-                panic!("Expected HumanMessage, but got something else");
-            }
-        } else {
-            panic!("Expected BaseMessage for HumanMessage, but got something else");
-        }
-
-        if let MessageLike::BaseMessage(base_message) = &chat_template.messages[1] {
-            if let MessageEnum::Ai(ai_message) = base_message.as_ref() {
-                assert_eq!(
-                    ai_message.content(),
-                    "Hi",
-                    "Expected Ai message content to be 'Hi'"
-                );
-            } else {
-                panic!("Expected AiMessage, but got something else");
-            }
-        } else {
-            panic!("Expected BaseMessage for AiMessage, but got something else");
-        }
+        assert!(examples.is_empty());
     }
 
     #[test]
-    fn test_examples_with_multiple_examples() {
-        // Testing examples with multiple examples (Human and Ai roles)
-        let result = examples!((Human = "2 + 2", Ai = "4"), (Human = "3 + 3", Ai = "6"));
+    fn test_examples_macro_with_trailing_comma() {
+        let examples = examples![
+            ("{input} What is 5 + 5?", "{output} 10"),
+            ("{input} What is 6 + 4?", "{output} 10"),
+        ];
 
-        assert_eq!(result.len(), 2, "Expected two ChatTemplates");
+        assert_eq!(examples.len(), 2);
+    }
 
-        // First example
-        let chat_template1 = &result[0];
+    #[test]
+    fn test_examples_macro_with_complex_strings() {
+        let examples = examples![
+            ("{input} Solve ∫x^2 dx", "{output} (1/3)x^3 + C"),
+            ("{input} Translate 'Hello' to Spanish", "{output} 'Hola'"),
+        ];
+
+        assert_eq!(examples.len(), 2);
         assert_eq!(
-            chat_template1.messages.len(),
-            2,
-            "Expected two messages in the first template"
+            examples[0].template(),
+            "{input} Solve ∫x^2 dx\n{output} (1/3)x^3 + C"
         );
-
-        if let MessageLike::BaseMessage(base_message) = &chat_template1.messages[0] {
-            if let MessageEnum::Human(human_message) = base_message.as_ref() {
-                assert_eq!(
-                    human_message.content(),
-                    "2 + 2",
-                    "Expected Human message content to be '2 + 2'"
-                );
-            } else {
-                panic!("Expected HumanMessage, but got something else");
-            }
-        } else {
-            panic!("Expected BaseMessage for HumanMessage, but got something else");
-        }
-
-        if let MessageLike::BaseMessage(base_message) = &chat_template1.messages[1] {
-            if let MessageEnum::Ai(ai_message) = base_message.as_ref() {
-                assert_eq!(
-                    ai_message.content(),
-                    "4",
-                    "Expected Ai message content to be '4'"
-                );
-            } else {
-                panic!("Expected AiMessage, but got something else");
-            }
-        } else {
-            panic!("Expected BaseMessage for AiMessage, but got something else");
-        }
-
-        // Second example
-        let chat_template2 = &result[1];
         assert_eq!(
-            chat_template2.messages.len(),
-            2,
-            "Expected two messages in the second template"
+            examples[1].template(),
+            "{input} Translate 'Hello' to Spanish\n{output} 'Hola'"
         );
+    }
 
-        if let MessageLike::BaseMessage(base_message) = &chat_template2.messages[0] {
-            if let MessageEnum::Human(human_message) = base_message.as_ref() {
-                assert_eq!(
-                    human_message.content(),
-                    "3 + 3",
-                    "Expected Human message content to be '3 + 3'"
-                );
-            } else {
-                panic!("Expected HumanMessage, but got something else");
-            }
-        } else {
-            panic!("Expected BaseMessage for HumanMessage, but got something else");
-        }
+    #[test]
+    fn test_examples_macro_with_variables() {
+        let input_question = "{input} What's the weather today?";
+        let output_answer = "{output} It's sunny and warm.";
 
-        if let MessageLike::BaseMessage(base_message) = &chat_template2.messages[1] {
-            if let MessageEnum::Ai(ai_message) = base_message.as_ref() {
-                assert_eq!(
-                    ai_message.content(),
-                    "6",
-                    "Expected Ai message content to be '6'"
-                );
-            } else {
-                panic!("Expected AiMessage, but got something else");
-            }
-        } else {
-            panic!("Expected BaseMessage for AiMessage, but got something else");
-        }
+        let examples = examples![(input_question, output_answer),];
+
+        assert_eq!(examples.len(), 1);
+        assert_eq!(
+            examples[0].template(),
+            "{input} What's the weather today?\n{output} It's sunny and warm."
+        );
+    }
+
+    #[test]
+    fn test_examples_macro_with_special_characters() {
+        let examples = examples![
+            ("{input} What's 7 * 8?", "{output} 56"),
+            ("{input} List symbols: @#$%^&*()", "{output} Symbols listed"),
+        ];
+
+        assert_eq!(examples.len(), 2);
+        assert_eq!(
+            examples[1].template(),
+            "{input} List symbols: @#$%^&*()\n{output} Symbols listed"
+        );
+    }
+
+    #[test]
+    fn test_examples_macro_with_newlines_in_strings() {
+        let examples = examples![("{input} First line\nSecond line", "{output} Response line"),];
+
+        assert_eq!(examples.len(), 1);
+        assert_eq!(
+            examples[0].template(),
+            "{input} First line\nSecond line\n{output} Response line"
+        );
     }
 }
