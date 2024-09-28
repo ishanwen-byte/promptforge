@@ -198,4 +198,68 @@ mod tests {
             panic!("Expected MessageLike::Placeholder variant.");
         }
     }
+
+    #[test]
+    fn test_unwrap_enum_success() {
+        let ai_message = AiMessage::new("I am an AI.").into();
+        let message_like = MessageLike::from_base_message(ai_message);
+
+        if let MessageLike::BaseMessage(arc_message_enum) = message_like {
+            let unwrapped = arc_message_enum.unwrap_enum();
+
+            assert!(matches!(unwrapped, MessageEnum::Ai(_)));
+
+            if let MessageEnum::Ai(ai_message) = unwrapped {
+                assert_eq!(ai_message.content(), "I am an AI.");
+            } else {
+                panic!("Expected AiMessage, got something else.");
+            }
+        } else {
+            panic!("Expected MessageLike::BaseMessage variant.");
+        }
+    }
+
+    #[test]
+    fn test_unwrap_enum_with_clone() {
+        let human_message = HumanMessage::new("Hello from Human.").into();
+        let message_like = MessageLike::from_base_message(human_message);
+
+        let arc_message_enum = if let MessageLike::BaseMessage(arc_message_enum) = &message_like {
+            Arc::clone(arc_message_enum)
+        } else {
+            panic!("Expected MessageLike::BaseMessage variant.");
+        };
+
+        let unwrapped = arc_message_enum.unwrap_enum();
+
+        assert!(matches!(unwrapped, MessageEnum::Human(_)));
+
+        if let MessageEnum::Human(human_message) = unwrapped {
+            assert_eq!(human_message.content(), "Hello from Human.");
+        } else {
+            panic!("Expected HumanMessage, got something else.");
+        }
+    }
+
+    #[test]
+    fn test_unwrap_enum_with_multiple_references() {
+        let ai_message = AiMessage::new("Another AI message").into();
+        let message_like = MessageLike::from_base_message(ai_message);
+
+        let arc_message_enum1 = if let MessageLike::BaseMessage(arc_message_enum) = &message_like {
+            Arc::clone(arc_message_enum)
+        } else {
+            panic!("Expected MessageLike::BaseMessage variant.");
+        };
+
+        let unwrapped = arc_message_enum1.unwrap_enum();
+
+        assert!(matches!(unwrapped, MessageEnum::Ai(_)));
+
+        if let MessageEnum::Ai(ai_message) = unwrapped {
+            assert_eq!(ai_message.content(), "Another AI message");
+        } else {
+            panic!("Expected AiMessage, got something else.");
+        }
+    }
 }
