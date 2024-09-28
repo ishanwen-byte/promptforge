@@ -1,7 +1,7 @@
 #[macro_export]
 macro_rules! vars {
     () => {
-        std::collections::HashMap::new()
+        std::collections::HashMap::<&str, &str>::new()
     };
 
     ($($key:ident = $value:expr),+ $(,)?) => {
