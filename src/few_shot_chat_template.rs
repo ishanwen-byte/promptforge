@@ -45,14 +45,23 @@ mod tests {
             ("{input}: What is 3 + 3?", "{output}: 6"),
         );
 
-        let few_shot_template = FewShotTemplate::new(examples);
+        let prefix = Template::new("### Examples:").unwrap();
+        let suffix = Template::new("---").unwrap();
+
+        let few_shot_builder = FewShotTemplate::<Template>::builder();
+        let few_shot_template = few_shot_builder
+            .examples(examples)
+            .prefix(prefix)
+            .suffix(suffix)
+            .build();
+
         let example_prompt =
             ChatTemplate::from_messages(chats!(Human = "{input}", Ai = "{output}")).unwrap();
         let few_shot_chat_template =
             FewShotChatTemplate::new(few_shot_template, example_prompt.clone());
 
         let formatted_examples = few_shot_chat_template.format_examples().unwrap();
-        let expected_output = "human: What is 2 + 2?\nai: 4\n\nhuman: What is 2 + 3?\nai: 5\n\nhuman: What is 3 + 3?\nai: 6";
+        let expected_output = "### Examples:\n\nhuman: What is 2 + 2?\nai: 4\n\nhuman: What is 2 + 3?\nai: 5\n\nhuman: What is 3 + 3?\nai: 6\n\n---";
         assert_eq!(formatted_examples, expected_output);
 
         let examples = examples!(
