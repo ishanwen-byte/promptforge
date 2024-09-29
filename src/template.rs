@@ -210,7 +210,10 @@ impl Template {
         validate_template(tmpl)?;
 
         let template_format = detect_template(tmpl)?;
-        let input_variables = extract_variables(tmpl);
+        let input_variables = extract_variables(tmpl)
+            .into_iter()
+            .map(|var| var.to_string())
+            .collect();
 
         let handlebars = if template_format == TemplateFormat::Mustache {
             let handle = Self::initialize_handlebars(tmpl)?;

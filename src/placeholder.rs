@@ -11,18 +11,18 @@ pub fn is_valid_identifier(s: &str) -> bool {
     IDENTIFIER_RE.is_match(s)
 }
 
-pub fn extract_variables(template: &str) -> Vec<String> {
+pub fn extract_variables(template: &str) -> Vec<&str> {
     let re = Regex::new(r"\{{1,2}([^}]+)\}{1,2}").unwrap();
     let mut unique_vars = HashSet::new();
     let mut result = Vec::new();
 
     for cap in re.captures_iter(template) {
-        let var = cap[1].trim();
+        let var = cap.get(1).unwrap().as_str().trim();
         if is_valid_identifier(var)
             && !has_multiple_words_between_braces(var)
-            && unique_vars.insert(var.to_string())
+            && unique_vars.insert(var)
         {
-            result.push(var.to_string());
+            result.push(var);
         }
     }
 
@@ -33,7 +33,7 @@ pub fn extract_placeholder_variable(template: &str) -> Result<String, TemplateEr
     let variables = extract_variables(template);
 
     if variables.len() == 1 {
-        Ok(variables[0].clone())
+        Ok(variables.first().unwrap().to_string())
     } else {
         Err(TemplateError::MalformedTemplate(
             "Template must contain exactly one placeholder variable.".to_string(),
