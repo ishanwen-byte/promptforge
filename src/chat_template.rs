@@ -4,6 +4,7 @@ use std::{collections::HashMap, ops::Add, sync::Arc};
 use messageforge::{BaseMessage, MessageEnum};
 
 use crate::{
+    extract_variables,
     message_like::{ArcMessageEnumExt, MessageLike},
     Formattable, MessagesPlaceholder, Role, Templatable, Template, TemplateError, TemplateFormat,
 };
@@ -118,14 +119,28 @@ impl ChatTemplate {
             .collect::<Result<Vec<_>, _>>()
             .map(|vecs| vecs.into_iter().flatten().collect())
     }
+
+    pub fn to_variables_map(&self) -> HashMap<&str, &str> {
+        let mut variables = HashMap::new();
+
+        for message in &self.messages {
+            if let MessageLike::RolePromptTemplate(role, template) = message {
+                let extracted_vars = extract_variables(template.template());
+
+                if let Some(&var) = extracted_vars.first() {
+                    variables.insert(var, role.as_str());
+                }
+            }
+        }
+
+        variables
+    }
 }
 
 impl Formattable for ChatTemplate {
     fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
-        // Use the existing format_messages method to format the chat messages
         let formatted_messages = futures::executor::block_on(self.format_messages(variables))?;
 
-        // Combine all formatted messages into a single string, separated by newlines
         let combined_result = formatted_messages
             .iter()
             .map(|message| message.content().to_string()) // Extract the content from each message
@@ -620,5 +635,53 @@ You have 5 unread messages.
 Thanks, AI.";
 
         assert_eq!(formatted_output, expected_output);
+    }
+
+    #[test]
+    fn test_to_variables_map_with_full_example() {
+        let chat_template = ChatTemplate::from_messages(chats!(
+            System = "You are a helpful AI bot. Your name is {name}.",
+            Ai = "I'm doing well, thank you.",
+        ))
+        .unwrap();
+
+        let variables = chat_template.to_variables_map();
+        let expected: HashMap<&str, &str> = [("name", "system")].into_iter().collect();
+        assert_eq!(variables, expected);
+    }
+
+    #[test]
+    fn test_to_variables_map_with_no_variables() {
+        let chat_template = ChatTemplate::from_messages(chats!(
+            Human = "Hello!",
+            Ai = "I'm doing well, thank you.",
+        ))
+        .unwrap();
+
+        let variables = chat_template.to_variables_map();
+        let expected: HashMap<&str, &str> = HashMap::new();
+        assert_eq!(variables, expected);
+    }
+
+    #[test]
+    fn test_to_variables_map_with_partial_variables() {
+        let chat_template = ChatTemplate::from_messages(chats!(
+            Human = "How are you, {name}?",
+            Ai = "I'm doing well, thank you.",
+        ))
+        .unwrap();
+
+        let variables = chat_template.to_variables_map();
+        let expected: HashMap<&str, &str> = [("name", "human")].into_iter().collect();
+        assert_eq!(variables, expected);
+    }
+
+    #[test]
+    fn test_to_variables_map_with_empty_template() {
+        let chat_template = ChatTemplate { messages: vec![] };
+
+        let variables = chat_template.to_variables_map();
+        let expected: HashMap<&str, &str> = HashMap::new();
+        assert_eq!(variables, expected);
     }
 }
