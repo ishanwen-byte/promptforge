@@ -143,7 +143,7 @@ impl Formattable for ChatTemplate {
 
         let combined_result = formatted_messages
             .iter()
-            .map(|message| message.content().to_string()) // Extract the content from each message
+            .map(|message| message.content().to_string())
             .collect::<Vec<_>>()
             .join("\n");
 
