@@ -1,5 +1,5 @@
 use crate::template_format::TemplateError;
-use crate::{Formattable, Templatable};
+use crate::{Formattable, Templatable, Template};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -54,8 +54,10 @@ where
     pub fn builder() -> FewShotTemplateBuilder<T> {
         FewShotTemplateBuilder::new()
     }
+}
 
-    pub fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
+impl Formattable for FewShotTemplate<Template> {
+    fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
         let prefix_str = if let Some(ref prefix_template) = self.prefix {
             prefix_template.format(variables)?
         } else {
