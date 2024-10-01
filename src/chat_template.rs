@@ -164,6 +164,16 @@ impl Add for ChatTemplate {
     }
 }
 
+impl TryFrom<String> for ChatTemplate {
+    type Error = TemplateError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        serde_json::from_str(&value).map_err(|msg| {
+            TemplateError::MalformedTemplate(format!("Failed to parse JSON: {}", msg))
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -720,5 +730,93 @@ ai: 5
 human: What is 4+4?";
 
         assert_eq!(formatted_output, expected_output);
+    }
+
+    #[test]
+    fn test_try_from_string_valid_chat_template() {
+        let json_data = r#"
+        {
+            "messages": [
+                {
+                    "BaseMessage": {
+                        "role": "human",
+                        "content": "What is 2 + 2?"
+                    }
+                },
+                {
+                    "BaseMessage": {
+                        "role": "ai",
+                        "content": "4"
+                    }
+                }
+            ]
+        }
+        "#;
+
+        let result = ChatTemplate::try_from(json_data.to_string());
+        assert!(result.is_ok());
+        let chat_template = result.unwrap();
+
+        assert_eq!(chat_template.messages.len(), 2);
+        if let MessageLike::BaseMessage(human_message) = &chat_template.messages[0] {
+            assert_eq!(human_message.content(), "What is 2 + 2?");
+        } else {
+            panic!("Expected a BaseMessage for the human message.");
+        }
+
+        if let MessageLike::BaseMessage(ai_message) = &chat_template.messages[1] {
+            assert_eq!(ai_message.content(), "4");
+        } else {
+            panic!("Expected a BaseMessage for the AI message.");
+        }
+    }
+
+    #[test]
+    fn test_try_from_string_invalid_json() {
+        let invalid_json_data = r#"{
+            "messages": [
+                {"role": "human", "content": "What is 2 + 2?"}
+            "#; // Invalid JSON (unclosed array and object)
+
+        let result = ChatTemplate::try_from(invalid_json_data.to_string());
+        assert!(result.is_err());
+
+        if let Err(TemplateError::MalformedTemplate(msg)) = result {
+            assert!(msg.contains("Failed to parse JSON"));
+        } else {
+            panic!("Expected TemplateError::MalformedTemplate");
+        }
+    }
+
+    #[test]
+    fn test_try_from_string_missing_field() {
+        let json_data_missing_field = r#"
+        {
+            "some_other_field": "value"
+        }
+        "#;
+
+        let result = ChatTemplate::try_from(json_data_missing_field.to_string());
+        assert!(result.is_err());
+
+        if let Err(TemplateError::MalformedTemplate(msg)) = result {
+            assert!(msg.contains("missing field"));
+        } else {
+            panic!("Expected TemplateError::MalformedTemplate");
+        }
+    }
+
+    #[test]
+    fn test_try_from_string_empty_json() {
+        let empty_json_data = "{}";
+
+        let result = ChatTemplate::try_from(empty_json_data.to_string());
+        assert!(result.is_err());
+
+        if let Err(TemplateError::MalformedTemplate(msg)) = result {
+            assert!(msg.contains("missing field"));
+        } else {
+            panic!("Expected TemplateError::MalformedTemplate");
+        }
     }
 }
