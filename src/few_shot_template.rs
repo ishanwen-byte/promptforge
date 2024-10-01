@@ -172,6 +172,15 @@ where
     }
 }
 
+impl TryFrom<String> for FewShotTemplate<Template> {
+    type Error = TemplateError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        serde_json::from_str(&value)
+            .map_err(|msg| TemplateError::MalformedTemplate(format!("{}", msg)))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -700,5 +709,66 @@ Question: Who was the father of Mary Ball Washington?
             deserialized.examples[0].template(),
             example_template.template()
         );
+    }
+
+    #[test]
+    fn test_try_from_string_valid() {
+        let json_data = r#"
+    {
+        "examples": [
+            { 
+                "template": "Q: {question1}\nA: {answer1}",
+                "template_format": "FmtString",
+                "input_variables": ["question1", "answer1"]
+            },
+            { 
+                "template": "Q: {question2}\nA: {answer2}",
+                "template_format": "FmtString",
+                "input_variables": ["question2", "answer2"]
+            }
+        ],
+        "example_separator": "\n---\n",
+        "prefix": { 
+            "template": "This is the prefix. Topic: {topic}",
+            "template_format": "FmtString",
+            "input_variables": ["topic"]
+        },
+        "suffix": { 
+            "template": "This is the suffix. Remember to think about {topic}.",
+            "template_format": "FmtString",
+            "input_variables": ["topic"]
+        }
+    }
+    "#;
+
+        let template = FewShotTemplate::<Template>::try_from(json_data.to_string());
+
+        assert!(template.is_ok());
+
+        let template = template.unwrap();
+        assert_eq!(template.examples.len(), 2);
+        assert!(template.prefix.is_some());
+        assert!(template.suffix.is_some());
+        assert_eq!(template.example_separator, "\n---\n");
+    }
+
+    #[test]
+    fn test_try_from_string_invalid() {
+        let invalid_json_data = "Invalid JSON string";
+
+        let error =
+            FewShotTemplate::<Template>::try_from(invalid_json_data.to_string()).unwrap_err();
+
+        match error {
+            TemplateError::MalformedTemplate(msg) => {
+                println!("Error message: {}", msg);
+            }
+            _ => {
+                panic!(
+                    "Expected TemplateError::MalformedTemplate, but got {:?}",
+                    error
+                );
+            }
+        }
     }
 }
