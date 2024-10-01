@@ -1,4 +1,5 @@
 use futures::future::join_all;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Add, sync::Arc};
 
 use messageforge::{BaseMessage, MessageEnum, SystemMessage};
@@ -9,7 +10,7 @@ use crate::{
     Formattable, MessagesPlaceholder, Role, Templatable, Template, TemplateError, TemplateFormat,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatTemplate {
     pub messages: Vec<MessageLike>,
 }
@@ -170,7 +171,7 @@ mod tests {
     use super::*;
     use crate::message_like::MessageLike;
     use crate::Role::{Ai, Human, Placeholder, System};
-    use crate::{chats, vars};
+    use crate::{chats, examples, vars, FewShotChatTemplate, FewShotTemplate};
 
     #[tokio::test]
     async fn test_from_messages_plaintext() {
@@ -685,5 +686,39 @@ Thanks, AI.";
         let variables = chat_template.to_variables_map();
         let expected: HashMap<&str, &str> = HashMap::new();
         assert_eq!(variables, expected);
+    }
+
+    #[tokio::test]
+    async fn test_few_shot_chat_template_with_final_prompt() {
+        let examples = examples!(
+            ("{input}: What is 2+2?", "{output}: 4"),
+            ("{input}: What is 2+3?", "{output}: 5")
+        );
+
+        let few_shot_template = FewShotTemplate::new(examples);
+        let example_prompt =
+            ChatTemplate::from_messages(chats!(Human = "{input}", Ai = "{output}")).unwrap();
+
+        let few_shot_chat_template = FewShotChatTemplate::new(few_shot_template, example_prompt);
+
+        let final_prompt = ChatTemplate::from_messages(vec![
+            (Role::System, "You are a helpful AI Assistant.".to_string()),
+            (Role::Human, "{input}".to_string()),
+        ])
+        .unwrap();
+
+        let variables = vars!(input = "What is 4+4?");
+        let formatted_output = final_prompt.format(&variables).unwrap();
+        let expected_output = "\
+You are a helpful AI Assistant
+human: What is 2+2?
+ai: 4
+
+human: What is 2+3?
+ai: 5
+
+human: What is 4+4?";
+
+        assert_eq!(formatted_output, expected_output);
     }
 }

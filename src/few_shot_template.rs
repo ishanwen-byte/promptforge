@@ -1,8 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 use crate::template_format::TemplateError;
 use crate::{Formattable, Templatable, Template};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FewShotTemplate<T: Templatable + Formattable> {
     examples: Vec<T>,
     example_separator: String,

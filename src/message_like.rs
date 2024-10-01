@@ -2,9 +2,10 @@ use crate::template::Template;
 use crate::MessagesPlaceholder;
 use crate::{role::Role, FewShotChatTemplate};
 use messageforge::{AiMessage, HumanMessage, MessageEnum, SystemMessage, ToolMessage};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MessageLike {
     BaseMessage(Arc<MessageEnum>),
     RolePromptTemplate(Role, Arc<Template>),

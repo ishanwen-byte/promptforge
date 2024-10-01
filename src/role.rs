@@ -1,8 +1,9 @@
 use std::{convert::TryFrom, fmt, sync::Arc};
 
 use messageforge::{AiMessage, HumanMessage, MessageEnum, SystemMessage};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum Role {
     System,
     Human,

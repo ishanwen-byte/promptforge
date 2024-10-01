@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{extract_placeholder_variable, TemplateError};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MessagesPlaceholder {
     variable_name: String,
     optional: bool,
