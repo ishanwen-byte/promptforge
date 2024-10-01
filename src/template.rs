@@ -200,6 +200,7 @@ pub struct Template {
     input_variables: Vec<String>,
     #[serde(skip, default)]
     handlebars: Option<Handlebars<'static>>,
+    #[serde(skip)]
     partials: HashMap<String, String>,
 }
 
