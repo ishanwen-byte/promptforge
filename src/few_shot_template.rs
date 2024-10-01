@@ -8,7 +8,9 @@ use std::collections::HashMap;
 pub struct FewShotTemplate<T: Templatable + Formattable> {
     examples: Vec<T>,
     example_separator: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     prefix: Option<T>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     suffix: Option<T>,
 }
 
@@ -587,5 +589,116 @@ Question: Who was the father of Mary Ball Washington?
         let expected_output_trimmed = expected_output.trim();
 
         assert_eq!(formatted_output_trimmed, expected_output_trimmed);
+    }
+
+    #[tokio::test]
+    async fn test_serialize_few_shot_template() {
+        let prefix_template = Template::new("This is the prefix. Topic: {topic}").unwrap();
+        let example_template1 = Template::new("Q: {question1}\nA: {answer1}").unwrap();
+        let example_template2 = Template::new("Q: {question2}\nA: {answer2}").unwrap();
+        let suffix_template =
+            Template::new("This is the suffix. Remember to think about {topic}.").unwrap();
+
+        let few_shot_template = FewShotTemplate::builder()
+            .prefix(prefix_template)
+            .example(example_template1)
+            .example(example_template2)
+            .suffix(suffix_template)
+            .example_separator("\n---\n")
+            .build();
+
+        let serialized = serde_json::to_string(&few_shot_template).expect("Serialization failed");
+
+        assert!(serialized.contains("This is the prefix"));
+        assert!(serialized.contains("Q: {question1}"));
+        assert!(serialized.contains("This is the suffix"));
+
+        println!("Serialized FewShotTemplate: {}", serialized);
+    }
+
+    #[tokio::test]
+    async fn test_deserialize_few_shot_template() {
+        let json_data = r#"
+    {
+        "examples": [
+            { 
+                "template": "Q: {question1}\nA: {answer1}",
+                "template_format": "FmtString",
+                "input_variables": ["question1", "answer1"]
+            },
+            { 
+                "template": "Q: {question2}\nA: {answer2}",
+                "template_format": "FmtString",
+                "input_variables": ["question2", "answer2"]
+            }
+        ],
+        "example_separator": "\n---\n",
+        "prefix": { 
+            "template": "This is the prefix. Topic: {topic}",
+            "template_format": "FmtString",
+            "input_variables": ["topic"]
+        },
+        "suffix": { 
+            "template": "This is the suffix. Remember to think about {topic}.",
+            "template_format": "FmtString",
+            "input_variables": ["topic"]
+        }
+    }
+    "#;
+
+        let deserialized: FewShotTemplate<Template> =
+            serde_json::from_str(json_data).expect("Deserialization failed");
+
+        assert_eq!(deserialized.examples.len(), 2);
+        assert_eq!(deserialized.example_separator, "\n---\n");
+
+        assert!(deserialized.prefix.is_some());
+        assert!(deserialized.suffix.is_some());
+
+        if let Some(prefix) = &deserialized.prefix {
+            assert_eq!(prefix.template(), "This is the prefix. Topic: {topic}");
+        }
+
+        if let Some(suffix) = &deserialized.suffix {
+            assert_eq!(
+                suffix.template(),
+                "This is the suffix. Remember to think about {topic}."
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_serialize_deserialize_few_shot_template() {
+        let prefix_template = Template::new("Prefix {var}").unwrap();
+        let example_template = Template::new("Example {var}").unwrap();
+        let suffix_template = Template::new("Suffix {var}").unwrap();
+
+        let few_shot_template = FewShotTemplate::builder()
+            .prefix(prefix_template.clone())
+            .example(example_template.clone())
+            .suffix(suffix_template.clone())
+            .build();
+
+        let serialized = serde_json::to_string(&few_shot_template).expect("Serialization failed");
+
+        let deserialized: FewShotTemplate<Template> =
+            serde_json::from_str(&serialized).expect("Deserialization failed");
+
+        assert_eq!(deserialized.examples.len(), 1);
+        assert_eq!(deserialized.example_separator, "\n\n");
+
+        assert_eq!(
+            deserialized.prefix.as_ref().unwrap().template(),
+            prefix_template.template()
+        );
+        assert_eq!(
+            deserialized.suffix.as_ref().unwrap().template(),
+            suffix_template.template()
+        );
+
+        assert_eq!(
+            deserialized.examples[0].template(),
+            example_template.template()
+        );
     }
 }
