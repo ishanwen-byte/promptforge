@@ -1,18 +1,18 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{ChatTemplate, FewShotTemplate, Formattable, Template, TemplateError};
 
 #[derive(Debug, Clone)]
 pub struct FewShotChatTemplate {
     examples: FewShotTemplate<Template>,
-    example_prompt: ChatTemplate,
+    example_prompt: Arc<ChatTemplate>,
 }
 
 impl FewShotChatTemplate {
     pub fn new(examples: FewShotTemplate<Template>, example_prompt: ChatTemplate) -> Self {
         FewShotChatTemplate {
             examples,
-            example_prompt,
+            example_prompt: Arc::new(example_prompt),
         }
     }
 
