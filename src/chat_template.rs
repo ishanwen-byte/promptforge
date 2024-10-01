@@ -1,7 +1,7 @@
 use futures::future::join_all;
 use std::{collections::HashMap, ops::Add, sync::Arc};
 
-use messageforge::{BaseMessage, MessageEnum};
+use messageforge::{BaseMessage, MessageEnum, SystemMessage};
 
 use crate::{
     extract_variables,
@@ -24,7 +24,7 @@ impl ChatTemplate {
         for (role, tmpl) in messages {
             if role == Role::Placeholder {
                 let placeholder = MessagesPlaceholder::try_from(tmpl)?;
-                result.push(MessageLike::from_placeholder(placeholder));
+                result.push(MessageLike::placeholder(placeholder));
                 continue;
             }
 
@@ -35,13 +35,10 @@ impl ChatTemplate {
                     let base_message = role
                         .to_message(tmpl.as_str())
                         .map_err(|_| TemplateError::InvalidRoleError)?;
-                    result.push(MessageLike::from_base_message(base_message.unwrap_enum()));
+                    result.push(MessageLike::base_message(base_message.unwrap_enum()));
                 }
                 _ => {
-                    result.push(MessageLike::from_role_prompt_template(
-                        role,
-                        prompt_template,
-                    ));
+                    result.push(MessageLike::role_prompt_template(role, prompt_template));
                 }
             }
         }
@@ -107,6 +104,13 @@ impl ChatTemplate {
 
                             Ok(limited_messages.into_iter().map(Arc::new).collect())
                         }
+                    }
+
+                    MessageLike::FewShotPrompt(few_shot_template) => {
+                        let formatted_examples = few_shot_template.format_examples()?;
+                        let message = MessageEnum::System(SystemMessage::new(&formatted_examples));
+
+                        Ok(vec![Arc::new(message)])
                     }
                 }
             })
@@ -537,12 +541,10 @@ Can I help you with anything else, Bob?";
         );
 
         let chat_template = ChatTemplate::from_messages(templates).unwrap();
-        // Missing the "name" variable in the vars map
         let variables = &vars!();
 
         let result = chat_template.format(variables);
 
-        // Expect an error due to the missing "name" variable
         assert!(result.is_err());
         if let Err(TemplateError::MissingVariable(missing_var)) = result {
             assert_eq!(
