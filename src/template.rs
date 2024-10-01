@@ -333,6 +333,14 @@ impl Templatable for Template {
     }
 }
 
+impl TryFrom<String> for Template {
+    type Error = TemplateError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Template::new(&value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -601,5 +609,77 @@ mod tests {
         let variables = &vars!(name = "Bob", mood = "excited");
         let formatted = template.format(variables).unwrap();
         assert_eq!(formatted, "Hello, Bob. You are feeling excited.");
+    }
+
+    #[test]
+    fn test_try_from_string_valid_template() {
+        let valid_template = "Hello, {name}! Your order number is {order_id}.".to_string();
+
+        let template = Template::try_from(valid_template.clone());
+        assert!(template.is_ok());
+        let template = template.unwrap();
+
+        assert_eq!(template.template, valid_template);
+        assert_eq!(template.template_format, TemplateFormat::FmtString);
+        assert_eq!(
+            template.input_variables,
+            vec!["name".to_string(), "order_id".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_try_from_string_valid_mustache_template() {
+        let valid_mustache_template =
+            "Hello, {{name}}! Your favorite color is {{color}}.".to_string();
+
+        let template = Template::try_from(valid_mustache_template.clone());
+        assert!(template.is_ok());
+        let template = template.unwrap();
+
+        assert_eq!(template.template, valid_mustache_template);
+        assert_eq!(template.template_format, TemplateFormat::Mustache);
+        assert_eq!(
+            template.input_variables,
+            vec!["name".to_string(), "color".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_try_from_string_plaintext_template() {
+        let plaintext_template = "Hello, world!".to_string();
+
+        let template = Template::try_from(plaintext_template.clone());
+        assert!(template.is_ok());
+        let template = template.unwrap();
+
+        assert_eq!(template.template, plaintext_template);
+        assert_eq!(template.template_format, TemplateFormat::PlainText);
+        assert!(template.input_variables.is_empty());
+    }
+
+    #[test]
+    fn test_try_from_string_malformed_template() {
+        let invalid_template = "Hello, {name!".to_string();
+
+        let template = Template::try_from(invalid_template.clone());
+        assert!(template.is_err());
+        if let Err(TemplateError::MalformedTemplate(msg)) = template {
+            println!("{}", msg);
+        } else {
+            panic!("Expected TemplateError::MalformedTemplate");
+        }
+    }
+
+    #[test]
+    fn test_try_from_string_mixed_format_template() {
+        let mixed_format_template = "Hello, {name} and {{color}}.".to_string();
+
+        let template = Template::try_from(mixed_format_template.clone());
+        assert!(template.is_err());
+        if let Err(TemplateError::MalformedTemplate(msg)) = template {
+            println!("{}", msg);
+        } else {
+            panic!("Expected TemplateError::MalformedTemplate");
+        }
     }
 }
