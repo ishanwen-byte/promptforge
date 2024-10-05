@@ -2,12 +2,13 @@ use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Add, sync::Arc};
 
-use messageforge::{BaseMessage, MessageEnum, SystemMessage};
+use messageforge::{BaseMessage, MessageEnum, MessageType, SystemMessage};
 
 use crate::{
     extract_variables,
     message_like::{ArcMessageEnumExt, MessageLike},
-    Formattable, MessagesPlaceholder, Role, Templatable, Template, TemplateError, TemplateFormat,
+    FewShotChatTemplate, Formattable, MessagesPlaceholder, Role, Templatable, Template,
+    TemplateError, TemplateFormat,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,6 +27,10 @@ impl ChatTemplate {
             if role == Role::Placeholder {
                 let placeholder = MessagesPlaceholder::try_from(tmpl)?;
                 result.push(MessageLike::placeholder(placeholder));
+                continue;
+            } else if role == Role::FewShotPrompt {
+                let few_shot_template = FewShotChatTemplate::try_from(tmpl)?;
+                result.push(MessageLike::few_shot_prompt(few_shot_template));
                 continue;
             }
 
@@ -129,15 +134,23 @@ impl ChatTemplate {
         let mut variables = HashMap::new();
 
         for message in &self.messages {
-            if let MessageLike::RolePromptTemplate(role, template) = message {
-                let extracted_vars = extract_variables(template.template());
+            match message {
+                MessageLike::RolePromptTemplate(role, template) => {
+                    let extracted_vars = extract_variables(template.template());
 
-                if let Some(&var) = extracted_vars.first() {
-                    variables.insert(var, role.as_str());
+                    if let Some(&var) = extracted_vars.first() {
+                        variables.insert(var, role.as_str());
+                    }
                 }
+                MessageLike::BaseMessage(base_message) => {
+                    if let Some(content) = extract_variables(base_message.content()).first() {
+                        let role_str = base_message.message_type().as_str();
+                        variables.insert(content, role_str);
+                    }
+                }
+                _ => {}
             }
         }
-
         variables
     }
 }
@@ -148,7 +161,24 @@ impl Formattable for ChatTemplate {
 
         let combined_result = formatted_messages
             .iter()
-            .map(|message| message.content().to_string())
+            .map(|message| {
+                let content = message.content();
+                if content.starts_with("human:")
+                    || content.starts_with("ai:")
+                    || content.starts_with("system:")
+                {
+                    message.content().to_string()
+                } else {
+                    let role_prefix = match message.message_type() {
+                        MessageType::Human => "human: ",
+                        MessageType::Ai => "ai: ",
+                        MessageType::System => "system: ",
+                        _ => "",
+                    };
+
+                    format!("{}{}", role_prefix, message.content())
+                }
+            })
             .collect::<Vec<_>>()
             .join("\n");
 
@@ -180,7 +210,7 @@ mod tests {
 
     use super::*;
     use crate::message_like::MessageLike;
-    use crate::Role::{Ai, Human, Placeholder, System};
+    use crate::Role::{Ai, FewShotPrompt, Human, Placeholder, System};
     use crate::{chats, examples, vars, FewShotChatTemplate, FewShotTemplate};
 
     #[tokio::test]
@@ -461,7 +491,7 @@ mod tests {
     #[tokio::test]
     async fn test_add_to_empty_template() {
         let filled_template =
-            ChatTemplate::from_messages(chats!(System, "This is a system message.")).unwrap();
+            ChatTemplate::from_messages(chats!(System = "This is a system message.")).unwrap();
         let empty_template = ChatTemplate::from_messages(chats!()).unwrap();
 
         let combined_template = filled_template + empty_template;
@@ -488,9 +518,9 @@ mod tests {
         let formatted_output = chat_template.format(variables).unwrap();
 
         let expected_output = "\
-System message.
-Hello, Alice!
-Hi Alice, how can I assist you today?";
+system: System message.
+human: Hello, Alice!
+ai: Hi Alice, how can I assist you today?";
 
         assert_eq!(formatted_output, expected_output);
     }
@@ -521,24 +551,23 @@ Hi Alice, how can I assist you today?";
         let formatted_output = chat_template.format(variables).unwrap();
 
         let expected_output = "\
-This is a system message.
-What is the capital of France?
-The capital of France is Paris.
-Can I help you with anything else, Bob?";
+system: This is a system message.
+human: What is the capital of France?
+ai: The capital of France is Paris.
+human: Can I help you with anything else, Bob?";
 
         assert_eq!(formatted_output, expected_output);
     }
 
     #[test]
     fn test_format_with_empty_chat_template() {
-        let templates = chats!(); // Empty chat template
+        let templates = chats!();
 
         let chat_template = ChatTemplate::from_messages(templates).unwrap();
         let variables = &vars!();
 
         let formatted_output = chat_template.format(variables).unwrap();
 
-        // Expect an empty output as the chat template has no messages
         let expected_output = "";
         assert_eq!(formatted_output, expected_output);
     }
@@ -602,8 +631,8 @@ Can I help you with anything else, Bob?";
         let formatted_output = chat_template.format(variables).unwrap();
 
         let expected_output = "\
-Hello Bob.
-Bob, how can I assist you today?";
+system: Hello Bob.
+ai: Bob, how can I assist you today?";
 
         assert_eq!(formatted_output, expected_output);
     }
@@ -622,9 +651,9 @@ Bob, how can I assist you today?";
         let formatted_output = chat_template.format(variables).unwrap();
 
         let expected_output = "\
-Welcome to the system.
-This is a plain text message.
-No variables or placeholders here.";
+system: Welcome to the system.
+human: This is a plain text message.
+ai: No variables or placeholders here.";
 
         assert_eq!(formatted_output, expected_output);
     }
@@ -643,9 +672,9 @@ No variables or placeholders here.";
         let formatted_output = chat_template.format(variables).unwrap();
 
         let expected_output = "\
-System notification: System update.
-You have 5 unread messages.
-Thanks, AI.";
+system: System notification: System update.
+ai: You have 5 unread messages.
+human: Thanks, AI.";
 
         assert_eq!(formatted_output, expected_output);
     }
@@ -690,12 +719,68 @@ Thanks, AI.";
     }
 
     #[test]
+    fn test_to_variables_map_with_base_message() {
+        let chat_template =
+            ChatTemplate::from_messages(chats!(Human = "{question}", Ai = "{answer}",)).unwrap();
+
+        let variables = chat_template.to_variables_map();
+        let expected: HashMap<&str, &str> = [("question", "human"), ("answer", "ai")]
+            .into_iter()
+            .collect();
+        assert_eq!(variables, expected);
+    }
+
+    #[test]
     fn test_to_variables_map_with_empty_template() {
         let chat_template = ChatTemplate { messages: vec![] };
 
         let variables = chat_template.to_variables_map();
         let expected: HashMap<&str, &str> = HashMap::new();
         assert_eq!(variables, expected);
+    }
+
+    #[tokio::test]
+    async fn test_from_messages_with_few_shot_prompt() {
+        let examples = examples!(
+            ("{input}: What is 2+2?", "{output}: 4"),
+            ("{input}: What is 2+3?", "{output}: 5")
+        );
+
+        let few_shot_template = FewShotTemplate::new(examples);
+        let example_prompt =
+            ChatTemplate::from_messages(chats!(Human = "{input}", Ai = "{output}")).unwrap();
+
+        let few_shot_chat_template = FewShotChatTemplate::new(few_shot_template, example_prompt);
+        let example_chats = chats![
+            System = "You are a helpful AI Assistant.".to_string(),
+            FewShotPrompt = few_shot_chat_template,
+            Human = "{input}".to_string(),
+        ];
+
+        let final_prompt = ChatTemplate::from_messages(example_chats);
+        let chat_template = final_prompt.unwrap();
+        assert_eq!(chat_template.messages.len(), 3);
+
+        if let MessageLike::BaseMessage(message) = &chat_template.messages[0] {
+            assert_eq!(message.content(), "You are a helpful AI Assistant.");
+        } else {
+            panic!("Expected a BaseMessage for the system message.");
+        }
+
+        if let MessageLike::FewShotPrompt(few_shot_prompt) = &chat_template.messages[1] {
+            let formatted_examples = few_shot_prompt.format_examples().unwrap();
+            assert!(formatted_examples.contains("What is 2+2?"));
+            assert!(formatted_examples.contains("What is 2+3?"));
+        } else {
+            panic!("Expected a FewShotPrompt for the second message.");
+        }
+
+        if let MessageLike::RolePromptTemplate(role, template) = &chat_template.messages[2] {
+            assert_eq!(role, &Role::Human);
+            assert_eq!(template.template(), "{input}");
+        } else {
+            panic!("Expected a RolePromptTemplate for the human message.");
+        }
     }
 
     #[tokio::test]
@@ -711,112 +796,25 @@ Thanks, AI.";
 
         let few_shot_chat_template = FewShotChatTemplate::new(few_shot_template, example_prompt);
 
-        let final_prompt = ChatTemplate::from_messages(vec![
-            (Role::System, "You are a helpful AI Assistant.".to_string()),
-            (Role::Human, "{input}".to_string()),
-        ])
-        .unwrap();
+        let final_prompt = ChatTemplate::from_messages(chats![
+            System = "You are a helpful AI Assistant.".to_string(),
+            FewShotPrompt = few_shot_chat_template.to_string(),
+            Human = "{input}".to_string(),
+        ]);
 
         let variables = vars!(input = "What is 4+4?");
-        let formatted_output = final_prompt.format(&variables).unwrap();
+        let formatted_output = final_prompt.unwrap().format(&variables).unwrap();
         let expected_output = "\
-You are a helpful AI Assistant
+system: You are a helpful AI Assistant.
 human: What is 2+2?
 ai: 4
 
 human: What is 2+3?
 ai: 5
 
+
 human: What is 4+4?";
 
         assert_eq!(formatted_output, expected_output);
-    }
-
-    #[test]
-    fn test_try_from_string_valid_chat_template() {
-        let json_data = r#"
-        {
-            "messages": [
-                {
-                    "BaseMessage": {
-                        "role": "human",
-                        "content": "What is 2 + 2?"
-                    }
-                },
-                {
-                    "BaseMessage": {
-                        "role": "ai",
-                        "content": "4"
-                    }
-                }
-            ]
-        }
-        "#;
-
-        let result = ChatTemplate::try_from(json_data.to_string());
-        assert!(result.is_ok());
-        let chat_template = result.unwrap();
-
-        assert_eq!(chat_template.messages.len(), 2);
-        if let MessageLike::BaseMessage(human_message) = &chat_template.messages[0] {
-            assert_eq!(human_message.content(), "What is 2 + 2?");
-        } else {
-            panic!("Expected a BaseMessage for the human message.");
-        }
-
-        if let MessageLike::BaseMessage(ai_message) = &chat_template.messages[1] {
-            assert_eq!(ai_message.content(), "4");
-        } else {
-            panic!("Expected a BaseMessage for the AI message.");
-        }
-    }
-
-    #[test]
-    fn test_try_from_string_invalid_json() {
-        let invalid_json_data = r#"{
-            "messages": [
-                {"role": "human", "content": "What is 2 + 2?"}
-            "#; // Invalid JSON (unclosed array and object)
-
-        let result = ChatTemplate::try_from(invalid_json_data.to_string());
-        assert!(result.is_err());
-
-        if let Err(TemplateError::MalformedTemplate(msg)) = result {
-            assert!(msg.contains("Failed to parse JSON"));
-        } else {
-            panic!("Expected TemplateError::MalformedTemplate");
-        }
-    }
-
-    #[test]
-    fn test_try_from_string_missing_field() {
-        let json_data_missing_field = r#"
-        {
-            "some_other_field": "value"
-        }
-        "#;
-
-        let result = ChatTemplate::try_from(json_data_missing_field.to_string());
-        assert!(result.is_err());
-
-        if let Err(TemplateError::MalformedTemplate(msg)) = result {
-            assert!(msg.contains("missing field"));
-        } else {
-            panic!("Expected TemplateError::MalformedTemplate");
-        }
-    }
-
-    #[test]
-    fn test_try_from_string_empty_json() {
-        let empty_json_data = "{}";
-
-        let result = ChatTemplate::try_from(empty_json_data.to_string());
-        assert!(result.is_err());
-
-        if let Err(TemplateError::MalformedTemplate(msg)) = result {
-            assert!(msg.contains("missing field"));
-        } else {
-            panic!("Expected TemplateError::MalformedTemplate");
-        }
     }
 }

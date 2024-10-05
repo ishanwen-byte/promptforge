@@ -1,21 +1,10 @@
 #[macro_export]
 macro_rules! chats {
-    // Empty case
     () => {
         Vec::<(Role, String)>::new()
     };
 
-    // Handle the `Role = "message"` pattern
     ($($role:ident = $tmpl:expr),+ $(,)?) => {
-        vec![
-            $(
-                ($role, $tmpl.to_string()),
-            )+
-        ]
-    };
-
-    // Handle the `Role, "message"` pattern
-    ($($role:ident, $tmpl:expr),+ $(,)?) => {
         vec![
             $(
                 ($role, $tmpl.to_string()),
@@ -26,8 +15,8 @@ macro_rules! chats {
 
 #[cfg(test)]
 mod tests {
-    use crate::role::Role::{Ai, Human, System};
-    use crate::{chats, Role};
+    use crate::role::Role::{Ai, FewShotPrompt, Human, System};
+    use crate::{chats, examples, ChatTemplate, FewShotChatTemplate, FewShotTemplate, Role};
 
     #[test]
     fn test_empty_list() {
@@ -120,5 +109,39 @@ mod tests {
 
         assert_eq!(templates[1].0, Human);
         assert_eq!(templates[1].1, "Hello!");
+    }
+
+    #[test]
+    fn test_few_shot_prompt() {
+        let examples = examples!(
+            ("{input}: What is 2 + 2?", "{output}: 4"),
+            ("{input}: What is the capital of France?", "{output}: Paris"),
+        );
+
+        let example_prompt =
+            ChatTemplate::from_messages(chats!(Human = "{input}", Ai = "{output}",)).unwrap();
+
+        let few_shot_template = FewShotTemplate::new(examples);
+        let few_shot_chat_template = FewShotChatTemplate::new(few_shot_template, example_prompt);
+
+        let few_shot_chat_template_str = few_shot_chat_template.to_string();
+
+        let templates = chats!(
+            System = "You are a helpful AI Assistant.",
+            FewShotPrompt = few_shot_chat_template_str,
+            Human = "{input}",
+        );
+
+        assert_eq!(templates.len(), 3);
+
+        assert_eq!(templates[0].0, System);
+        assert_eq!(templates[0].1, "You are a helpful AI Assistant.");
+
+        assert_eq!(templates[1].0, FewShotPrompt);
+        assert_eq!(templates[1].1, few_shot_chat_template.to_string());
+
+        // Check the Human message
+        assert_eq!(templates[2].0, Human);
+        assert_eq!(templates[2].1, "{input}");
     }
 }

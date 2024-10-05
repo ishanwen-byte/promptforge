@@ -10,6 +10,7 @@ pub enum Role {
     Ai,
     Tool,
     Placeholder,
+    FewShotPrompt,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -33,6 +34,7 @@ impl TryFrom<&str> for Role {
             "ai" => Ok(Role::Ai),
             "tool" => Ok(Role::Tool),
             "placeholder" => Ok(Role::Placeholder),
+            "fewshotprompt" => Ok(Role::FewShotPrompt),
             _ => Err(InvalidRoleError),
         }
     }
@@ -46,6 +48,7 @@ impl Role {
             Role::Ai => "ai",
             Role::Tool => "tool",
             Role::Placeholder => "placeholder",
+            Role::FewShotPrompt => "fewshotprompt",
         }
     }
 
@@ -89,6 +92,7 @@ mod tests {
         assert_eq!(Role::Ai.to_string(), "ai");
         assert_eq!(Role::Tool.to_string(), "tool");
         assert_eq!(Role::Placeholder.to_string(), "placeholder");
+        assert_eq!(Role::FewShotPrompt.to_string(), "fewshotprompt");
     }
 
     #[test]
@@ -98,6 +102,10 @@ mod tests {
         assert_eq!(Role::try_from("ai").unwrap(), Role::Ai);
         assert_eq!(Role::try_from("tool").unwrap(), Role::Tool);
         assert_eq!(Role::try_from("placeholder").unwrap(), Role::Placeholder);
+        assert_eq!(
+            Role::try_from("fewshotprompt").unwrap(),
+            Role::FewShotPrompt
+        );
         assert!(Role::try_from("invalid").is_err());
     }
 

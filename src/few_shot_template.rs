@@ -58,6 +58,22 @@ where
     pub fn builder() -> FewShotTemplateBuilder<T> {
         FewShotTemplateBuilder::new()
     }
+
+    pub fn examples(&self) -> &[T] {
+        &self.examples
+    }
+
+    pub fn example_separator(&self) -> &str {
+        &self.example_separator
+    }
+
+    pub fn prefix(&self) -> Option<&T> {
+        self.prefix.as_ref()
+    }
+
+    pub fn suffix(&self) -> Option<&T> {
+        self.suffix.as_ref()
+    }
 }
 
 impl Formattable for FewShotTemplate<Template> {
