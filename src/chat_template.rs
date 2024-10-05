@@ -22,28 +22,27 @@ impl ChatTemplate {
     {
         let mut result = Vec::new();
 
-        for (role, tmpl) in messages {
-            if role == Role::Placeholder {
-                let placeholder = MessagesPlaceholder::try_from(tmpl)?;
-                result.push(MessageLike::placeholder(placeholder));
-                continue;
-            } else if role == Role::FewShotPrompt {
-                let few_shot_template = FewShotChatTemplate::try_from(tmpl)?;
-                result.push(MessageLike::few_shot_prompt(few_shot_template));
-                continue;
-            }
-
-            let prompt_template = Template::from_template(tmpl.as_str())?;
-
-            match prompt_template.template_format() {
-                TemplateFormat::PlainText => {
-                    let base_message = role
-                        .to_message(tmpl.as_str())
-                        .map_err(|_| TemplateError::InvalidRoleError)?;
-                    result.push(MessageLike::base_message(base_message.unwrap_enum()));
+        for (role, template_str) in messages {
+            match role {
+                Role::Placeholder => {
+                    let placeholder = MessagesPlaceholder::try_from(template_str)?;
+                    result.push(MessageLike::placeholder(placeholder));
+                }
+                Role::FewShotPrompt => {
+                    let few_shot_template = FewShotChatTemplate::try_from(template_str)?;
+                    result.push(MessageLike::few_shot_prompt(few_shot_template));
                 }
                 _ => {
-                    result.push(MessageLike::role_prompt_template(role, prompt_template));
+                    let prompt_template = Template::from_template(&template_str)?;
+
+                    if prompt_template.template_format() == TemplateFormat::PlainText {
+                        let base_message = role
+                            .to_message(&template_str)
+                            .map_err(|_| TemplateError::InvalidRoleError)?;
+                        result.push(MessageLike::base_message(base_message.unwrap_enum()));
+                    } else {
+                        result.push(MessageLike::role_prompt_template(role, prompt_template));
+                    }
                 }
             }
         }
