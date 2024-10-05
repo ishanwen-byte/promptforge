@@ -339,8 +339,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_format_few_shot_chat_template() {
+    #[test]
+    fn test_format_few_shot_chat_template() {
         let examples = examples!(
             ("{input}: What is 2+2?", "{output}: 4"),
             ("{input}: What is 2+3?", "{output}: 5")

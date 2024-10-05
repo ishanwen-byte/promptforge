@@ -204,8 +204,8 @@ mod tests {
     use crate::vars;
     use crate::Template;
 
-    #[tokio::test]
-    async fn test_few_shot_template_with_prefix_suffix_and_examples() {
+    #[test]
+    fn test_few_shot_template_with_prefix_suffix_and_examples() {
         let prefix_template = Template::new("This is the prefix. Topic: {topic}").unwrap();
         let example_template1 = Template::new("Q: {question1}\nA: {answer1}").unwrap();
         let example_template2 = Template::new("Q: {question2}\nA: {answer2}").unwrap();
@@ -243,8 +243,8 @@ This is the suffix. Remember to think about Science.";
         assert_eq!(formatted_output, expected_output);
     }
 
-    #[tokio::test]
-    async fn test_few_shot_template_without_prefix_and_suffix() {
+    #[test]
+    fn test_few_shot_template_without_prefix_and_suffix() {
         let example_template1 = Template::new("First example with {variable}.").unwrap();
         let example_template2 = Template::new("Second example with {variable}.").unwrap();
 
@@ -264,8 +264,8 @@ Second example with test data.";
         assert_eq!(formatted_output, expected_output);
     }
 
-    #[tokio::test]
-    async fn test_few_shot_template_with_empty_examples() {
+    #[test]
+    fn test_few_shot_template_with_empty_examples() {
         let prefix_template = Template::new("This is the prefix.").unwrap();
         let suffix_template = Template::new("This is the suffix.").unwrap();
 
@@ -285,8 +285,8 @@ This is the suffix.";
         assert_eq!(formatted_output, expected_output);
     }
 
-    #[tokio::test]
-    async fn test_few_shot_template_with_missing_variables() {
+    #[test]
+    fn test_few_shot_template_with_missing_variables() {
         let prefix_template = Template::new("Prefix with {var1}").unwrap();
         let example_template = Template::new("Example with {var2}").unwrap();
         let suffix_template = Template::new("Suffix with {var3}").unwrap();
@@ -314,8 +314,8 @@ This is the suffix.";
         }
     }
 
-    #[tokio::test]
-    async fn test_few_shot_template_with_partial_variables() {
+    #[test]
+    fn test_few_shot_template_with_partial_variables() {
         let prefix_template = Template::new("Welcome, {user}!").unwrap();
         let example_template = Template::new("Your role is {role}.").unwrap();
         let suffix_template = Template::new("Goodbye, {user}.").unwrap();
@@ -337,8 +337,8 @@ This is the suffix.";
         }
     }
 
-    #[tokio::test]
-    async fn test_few_shot_template_with_custom_example_separator() {
+    #[test]
+    fn test_few_shot_template_with_custom_example_separator() {
         let prefix_template = Template::new("Start").unwrap();
         let example_template1 = Template::new("Example One").unwrap();
         let example_template2 = Template::new("Example Two").unwrap();
@@ -367,8 +367,8 @@ End";
         assert_eq!(formatted_output, expected_output);
     }
 
-    #[tokio::test]
-    async fn test_few_shot_template_with_plain_text_templates() {
+    #[test]
+    fn test_few_shot_template_with_plain_text_templates() {
         let prefix_template = Template::new("Plain prefix").unwrap();
         let example_template = Template::new("Plain example").unwrap();
         let suffix_template = Template::new("Plain suffix").unwrap();
@@ -392,8 +392,8 @@ Plain suffix";
         assert_eq!(formatted_output, expected_output);
     }
 
-    #[tokio::test]
-    async fn test_few_shot_template_with_multiple_examples() {
+    #[test]
+    fn test_few_shot_template_with_multiple_examples() {
         let prefix_template = Template::new("Examples Start").unwrap();
         let mut examples = Vec::new();
 
@@ -432,8 +432,8 @@ Examples End";
         assert_eq!(formatted_output, expected_output);
     }
 
-    #[tokio::test]
-    async fn test_few_shot_template_with_repeated_variables() {
+    #[test]
+    fn test_few_shot_template_with_repeated_variables() {
         let prefix_template = Template::new("Start {var}").unwrap();
         let example_template = Template::new("Example {var}").unwrap();
         let suffix_template = Template::new("End {var}").unwrap();
@@ -460,8 +460,8 @@ End Value";
         assert_eq!(formatted_output, expected_output);
     }
 
-    #[tokio::test]
-    async fn test_few_shot_template_with_no_examples() {
+    #[test]
+    fn test_few_shot_template_with_no_examples() {
         let prefix_template = Template::new("Only Prefix").unwrap();
         let suffix_template = Template::new("Only Suffix").unwrap();
 
@@ -481,8 +481,8 @@ Only Suffix";
         assert_eq!(formatted_output, expected_output);
     }
 
-    #[tokio::test]
-    async fn test_few_shot_template_langchain_example() {
+    #[test]
+    fn test_few_shot_template_langchain_example() {
         use crate::vars;
         use crate::Template;
 
@@ -616,8 +616,8 @@ Question: Who was the father of Mary Ball Washington?
         assert_eq!(formatted_output_trimmed, expected_output_trimmed);
     }
 
-    #[tokio::test]
-    async fn test_serialize_few_shot_template() {
+    #[test]
+    fn test_serialize_few_shot_template() {
         let prefix_template = Template::new("This is the prefix. Topic: {topic}").unwrap();
         let example_template1 = Template::new("Q: {question1}\nA: {answer1}").unwrap();
         let example_template2 = Template::new("Q: {question2}\nA: {answer2}").unwrap();
@@ -641,8 +641,8 @@ Question: Who was the father of Mary Ball Washington?
         println!("Serialized FewShotTemplate: {}", serialized);
     }
 
-    #[tokio::test]
-    async fn test_deserialize_few_shot_template() {
+    #[test]
+    fn test_deserialize_few_shot_template() {
         let json_data = r#"
     {
         "examples": [
@@ -692,8 +692,8 @@ Question: Who was the father of Mary Ball Washington?
         }
     }
 
-    #[tokio::test]
-    async fn test_serialize_deserialize_few_shot_template() {
+    #[test]
+    fn test_serialize_deserialize_few_shot_template() {
         let prefix_template = Template::new("Prefix {var}").unwrap();
         let example_template = Template::new("Example {var}").unwrap();
         let suffix_template = Template::new("Suffix {var}").unwrap();

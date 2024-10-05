@@ -51,7 +51,7 @@ impl ChatTemplate {
         Ok(ChatTemplate { messages: result })
     }
 
-    pub async fn invoke(
+    pub fn invoke(
         &self,
         variables: &HashMap<&str, &str>,
     ) -> Result<Vec<Arc<MessageEnum>>, TemplateError> {
@@ -204,8 +204,8 @@ mod tests {
     use crate::Role::{Ai, FewShotPrompt, Human, Placeholder, System};
     use crate::{chats, examples, vars, FewShotChatTemplate, FewShotTemplate};
 
-    #[tokio::test]
-    async fn test_from_messages_plaintext() {
+    #[test]
+    fn test_from_messages_plaintext() {
         let templates = chats!(
             System = "This is a system message.",
             Human = "Hello, human!",
@@ -228,8 +228,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_from_messages_formatted_template() {
+    #[test]
+    fn test_from_messages_formatted_template() {
         let templates = chats!(
             System = "You are a helpful AI bot. Your name is {name}.",
             Ai = "I'm doing well, thank you.",
@@ -256,8 +256,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_from_messages_placeholder() {
+    #[test]
+    fn test_from_messages_placeholder() {
         let templates = chats!(
             System = "This is a valid system message.",
             Placeholder = "{history}",
@@ -281,8 +281,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_invoke_with_base_messages() {
+    #[test]
+    fn test_invoke_with_base_messages() {
         let templates = chats!(
             System = "This is a system message.",
             Human = "Hello, human!"
@@ -293,15 +293,15 @@ mod tests {
         assert_eq!(chat_prompt.messages.len(), 2);
 
         let variables = HashMap::new();
-        let result = chat_prompt.invoke(&variables).await.unwrap();
+        let result = chat_prompt.invoke(&variables).unwrap();
 
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].content(), "This is a system message.");
         assert_eq!(result[1].content(), "Hello, human!");
     }
 
-    #[tokio::test]
-    async fn test_invoke_with_role_prompt_template() {
+    #[test]
+    fn test_invoke_with_role_prompt_template() {
         let templates = chats!(
             System = "System maintenance is scheduled.",
             Human = "Hello, {name}!"
@@ -311,15 +311,15 @@ mod tests {
         assert_eq!(chat_prompt.messages.len(), 2);
 
         let variables = vars!(name = "Alice");
-        let result = chat_prompt.invoke(&variables).await.unwrap();
+        let result = chat_prompt.invoke(&variables).unwrap();
 
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].content(), "System maintenance is scheduled.");
         assert_eq!(result[1].content(), "Hello, Alice!");
     }
 
-    #[tokio::test]
-    async fn test_invoke_with_placeholder_and_role_templates() {
+    #[test]
+    fn test_invoke_with_placeholder_and_role_templates() {
         let history_json = json!([
             {
                 "role": "human",
@@ -342,7 +342,7 @@ mod tests {
         assert_eq!(chat_prompt.messages.len(), 3);
 
         let variables = &vars!(history = history_json.as_str(), name = "Bob");
-        let result = chat_prompt.invoke(variables).await.unwrap();
+        let result = chat_prompt.invoke(variables).unwrap();
 
         assert_eq!(result.len(), 4);
         assert_eq!(result[0].content(), "This is a system message.");
@@ -351,8 +351,8 @@ mod tests {
         assert_eq!(result[3].content(), "How can I help you, Bob?");
     }
 
-    #[tokio::test]
-    async fn test_invoke_with_invalid_json_history() {
+    #[test]
+    fn test_invoke_with_invalid_json_history() {
         let invalid_history_json = "invalid json string";
 
         let templates = chats!(
@@ -364,19 +364,19 @@ mod tests {
         let chat_prompt = ChatTemplate::from_messages(templates).unwrap();
         let variables = vars!(history = invalid_history_json, name = "Bob");
 
-        let result = chat_prompt.invoke(&variables).await;
+        let result = chat_prompt.invoke(&variables);
         assert!(result.is_err());
     }
 
-    #[tokio::test]
-    async fn test_empty_templates() {
+    #[test]
+    fn test_empty_templates() {
         let templates = chats!();
         let chat_prompt = ChatTemplate::from_messages(templates);
         assert!(chat_prompt.unwrap().messages.is_empty());
     }
 
-    #[tokio::test]
-    async fn test_invoke_with_empty_variables_map() {
+    #[test]
+    fn test_invoke_with_empty_variables_map() {
         let templates = chats!(
             System = "System maintenance is scheduled.",
             Human = "Hello, {name}!"
@@ -385,12 +385,12 @@ mod tests {
         let chat_prompt = ChatTemplate::from_messages(templates).unwrap();
         let variables = vars!();
 
-        let result = chat_prompt.invoke(&variables).await;
+        let result = chat_prompt.invoke(&variables);
         assert!(result.is_err());
     }
 
-    #[tokio::test]
-    async fn test_invoke_with_multiple_placeholders_in_one_template() {
+    #[test]
+    fn test_invoke_with_multiple_placeholders_in_one_template() {
         let templates = chats!(
             Human = "Hello, {name}. How are you on this {day}?",
             System = "Today is {day}. Have a great {day}."
@@ -399,7 +399,7 @@ mod tests {
         let chat_prompt = ChatTemplate::from_messages(templates).unwrap();
         let variables = vars!(name = "Alice", day = "Monday");
 
-        let result = chat_prompt.invoke(&variables).await.unwrap();
+        let result = chat_prompt.invoke(&variables).unwrap();
 
         assert_eq!(result.len(), 2);
         assert_eq!(
@@ -409,8 +409,8 @@ mod tests {
         assert_eq!(result[1].content(), "Today is Monday. Have a great Monday.");
     }
 
-    #[tokio::test]
-    async fn test_add_two_templates() {
+    #[test]
+    fn test_add_two_templates() {
         let template1 =
             ChatTemplate::from_messages(chats!(System = "You are a helpful AI bot.")).unwrap();
         let template2 =
@@ -433,8 +433,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_add_multiple_templates() {
+    #[test]
+    fn test_add_multiple_templates() {
         let system_template =
             ChatTemplate::from_messages(chats!(System = "System message.")).unwrap();
         let user_template = ChatTemplate::from_messages(chats!(Human = "User message.")).unwrap();
@@ -463,8 +463,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_add_empty_template() {
+    #[test]
+    fn test_add_empty_template() {
         let empty_template = ChatTemplate::from_messages(chats!()).unwrap();
         let filled_template =
             ChatTemplate::from_messages(chats!(System = "This is a system message.")).unwrap();
@@ -479,8 +479,8 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_add_to_empty_template() {
+    #[test]
+    fn test_add_to_empty_template() {
         let filled_template =
             ChatTemplate::from_messages(chats!(System = "This is a system message.")).unwrap();
         let empty_template = ChatTemplate::from_messages(chats!()).unwrap();
@@ -730,8 +730,8 @@ human: Thanks, AI.";
         assert_eq!(variables, expected);
     }
 
-    #[tokio::test]
-    async fn test_from_messages_with_few_shot_prompt() {
+    #[test]
+    fn test_from_messages_with_few_shot_prompt() {
         let examples = examples!(
             ("{input}: What is 2+2?", "{output}: 4"),
             ("{input}: What is 2+3?", "{output}: 5")
@@ -774,8 +774,8 @@ human: Thanks, AI.";
         }
     }
 
-    #[tokio::test]
-    async fn test_few_shot_chat_template_with_final_prompt() {
+    #[test]
+    fn test_few_shot_chat_template_with_final_prompt() {
         let examples = examples!(
             ("{input}: What is 2+2?", "{output}: 4"),
             ("{input}: What is 2+3?", "{output}: 5")

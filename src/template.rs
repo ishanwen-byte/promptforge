@@ -1,188 +1,3 @@
-//! # Template
-//!
-//! `Template` is a struct designed to simplify the creation and formatting of dynamic, reusable prompts for AI-driven applications. It supports multiple template formats, including `FmtString` (similar to Python's f-strings) and `Mustache` (a logic-less templating system).
-//!
-//! This struct provides an easy way to define templates with placeholders for variables and then substitute values for those placeholders at runtime.
-//!
-//! ## Example Usage
-//!
-//! ### FmtString Template
-//!
-//! ```rust
-//! use promptforge::{Template, TemplateError, vars};
-//! use promptforge::{Templatable, Formattable};
-//! use tokio;
-//!
-//! #[tokio::main]
-//! async fn main() -> Result<(), TemplateError> {
-//!     let tmpl = Template::new("Hello, {name}! Your order number is {order_id}.")?;
-//!     let variables = &vars!(name = "Alice", order_id = "12345");
-//!     let result = tmpl.format(variables)?;
-//!     
-//!     println!("{}", result);  // Outputs: Hello, Alice! Your order number is 12345.
-//!     Ok(())
-//! }
-//! ```
-//!
-//! ### Mustache Template
-//!
-//! ```rust
-//! use promptforge::{Templatable, Formattable};
-//! use promptforge::{Template, TemplateError, vars};
-//! use tokio;
-//!
-//! #[tokio::main]
-//! async fn main() -> Result<(), TemplateError> {
-//!     let tmpl = Template::new("Hello, {{name}}! Your favorite color is {{color}}.")?;
-//!     let variables = &vars!(name = "Bob", color = "blue");
-//!     let result = tmpl.format(variables)?;
-//!     
-//!     println!("{}", result);  // Outputs: Hello, Bob! Your favorite color is blue.
-//!     Ok(())
-//! }
-//! ```
-//!
-//! ### Handling Missing Variables
-//!
-//! ```rust
-//! use promptforge::{Templatable, Formattable};
-//! use promptforge::{Template, TemplateError, vars};
-//! use tokio;
-//!
-//! #[tokio::main]
-//! async fn main() -> Result<(), TemplateError> {
-//!     let tmpl = Template::new("Hi, {name}! Please confirm your email: {email}.")?;
-//!     let variables = &vars!(name = "Charlie");
-//!     let result = tmpl.format(variables);
-//!     
-//!     assert!(result.is_err());
-//!     println!("Error: {:?}", result.unwrap_err());  // Outputs: Error: MissingVariable("email")
-//!     Ok(())
-//! }
-//! ```
-//!
-//! ## Fields
-//!
-//! - `template`: The raw string template that contains placeholders for variables. This template can be either in `FmtString` or `Mustache` format.
-//! - `template_format`: Specifies whether the template is in `FmtString`, `Mustache`, or `PlainText` format. This is automatically detected based on the template passed in.
-//! - `input_variables`: A `Vec<String>` that lists the variable names expected to be provided when formatting the template. These are automatically extracted from the template.
-//! - `handlebars`: Optional `Handlebars<'static>` instance. This is only initialized when using Mustache templates. It is used for rendering Mustache-style templates.
-//!
-//! ## Methods
-//!
-//! ### `new`
-//!
-//! ```rust
-//! // pub fn new(tmpl: &str) -> Result<Self, TemplateError>
-//! ```
-//!
-//! Creates a new `Template` instance from a template string. The function validates the template, detects the format (FmtString or Mustache), and extracts the expected variables.
-//!
-//! - **Arguments**:
-//!   - `tmpl`: The template string, which contains placeholders (e.g., `"{name}"` or `"{{name}}"`).
-//! - **Returns**:
-//!   - `Result<Self, TemplateError>`: A `Template` instance or a `TemplateError` if the template is malformed or contains unsupported formats.
-//!
-//! ### `from_template`
-//!
-//! ```rust
-//! // pub fn from_template(tmpl: &str) -> Result<Self, TemplateError>
-//! ```
-//!
-//! Alias for `new`. This method is provided to keep consistency with the API, mimicking similar libraries like LangChain.
-//!
-//! - **Arguments**:
-//!   - `tmpl`: The template string.
-//! - **Returns**:
-//!   - Same as `new`.
-//!
-//! ### `validate_variables`
-//!
-//! ```rust
-//! // fn validate_variables(&self, variables: &std::collections::HashMap<&str, &str>) -> Result<(), TemplateError>
-//! ```
-//!
-//! Ensures that all required variables for the template are provided in the `variables` map. If a required variable is missing, it returns a `TemplateError::MissingVariable`.
-//!
-//! - **Arguments**:
-//!   - `variables`: A `HashMap` containing the variable names and values to be substituted in the template.
-//! - **Returns**:
-//!   - `Ok(())` if all variables are valid, otherwise returns a `TemplateError`.
-//!
-//! ### `format`
-//!
-//! ```rust
-//! // pub fn format(&self, variables: std::collections::HashMap<&str, &str>) -> Result<String, TemplateError>
-//! ```
-//!
-//! Formats the template by substituting the provided variables into the placeholders in the template. The function supports both `FmtString` and `Mustache` templates, performing the appropriate rendering based on the detected format.
-//!
-//! - **Arguments**:
-//!   - `variables`: A `HashMap` containing the variable names and values to be substituted in the template.
-//! - **Returns**:
-//!   - `Result<String, TemplateError>`: The formatted string or an error if any variables are missing or the template is malformed.
-//!
-//! ### `template_format`
-//!
-//! ```rust
-//! // pub fn template_format(&self) -> TemplateFormat
-//! ```
-//!
-//! Returns the format of the template, which can be `FmtString`, `Mustache`, or `PlainText`.
-//!
-//! - **Returns**:
-//!   - The `TemplateFormat` for the template.
-//!
-//! ### `input_variables`
-//!
-//! ```rust
-//! // pub fn input_variables(&self) -> Vec<String>
-//! ```
-//!
-//! Returns a list of the variable names expected by the template.
-//!
-//! - **Returns**:
-//!   - A `Vec<String>` of variable names.
-//!
-//! ### Internal Helper Methods
-//!
-//! #### `initialize_handlebars`
-//!
-//! ```rust
-//! // fn initialize_handlebars(tmpl: &str) -> Result<Handlebars<'static>, TemplateError>
-//! ```
-//!
-//! Initializes the `Handlebars` instance and registers the Mustache template. This is used internally when a Mustache template is detected.
-//!
-//! - **Arguments**:
-//!   - `tmpl`: The template string.
-//! - **Returns**:
-//!   - A `Handlebars` instance or a `TemplateError` if the template registration fails.
-//!
-//! ## Error Handling
-//!
-//! `Template` provides comprehensive error handling through the `TemplateError` enum. It ensures that:
-//!
-//! - Templates are validated upon creation (invalid placeholders, mixed formats, etc.).
-//! - Missing variables are detected and reported with detailed error messages.
-//! - Unsupported template formats are caught early.
-//!
-//! ## Design Decisions
-//!
-//! - **Thread Safety**: `Template` can be used in asynchronous contexts without issues, as it doesn’t require modification after creation. For multi-threaded environments, you can safely share instances of `Template` across threads or tasks by wrapping it in an `Arc`. No additional synchronization (like `Mutex` or `RwLock`) is necessary unless you plan to modify the instance after its creation.
-//!
-//! - **Handlebars**: The `Handlebars` instance is only created when a Mustache template is detected. This avoids the overhead of initializing it for templates that don’t require Mustache-style rendering.
-//!
-//! ## Planned Enhancements
-//!
-//! - **Asynchronous Support**: Adding asynchronous methods to align with async Rust patterns.
-//! - **Advanced Templating**: Support for conditionals and loops in Mustache templates.
-//! - **Customizable Format**: Allow users to define and plug in custom template formats.
-//!
-//! ## Conclusion
-//!
-//! `Template` is a powerful and flexible tool for managing dynamic prompts in AI-driven systems. By supporting both FmtString and Mustache formats, it provides developers with the ability to create reusable, dynamic prompts that can be adapted to a wide range of use cases.
-
 use handlebars::Handlebars;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -346,8 +161,8 @@ mod tests {
     use super::*;
     use crate::vars;
 
-    #[tokio::test]
-    async fn test_prompt_template_new_success() {
+    #[test]
+    fn test_prompt_template_new_success() {
         let valid_template = "Tell me a {adjective} joke about {content}.";
         let tmpl = Template::new(valid_template);
         assert!(tmpl.is_ok());
@@ -373,8 +188,8 @@ mod tests {
         assert_eq!(tmpl.input_variables.len(), 0);
     }
 
-    #[tokio::test]
-    async fn test_prompt_template_new_error() {
+    #[test]
+    fn test_prompt_template_new_error() {
         let mixed_template = "Tell me a {adjective} joke about {{content}}.";
         let tmpl_err = Template::new(mixed_template).unwrap_err();
         assert!(matches!(tmpl_err, TemplateError::MalformedTemplate(_)));
@@ -388,8 +203,8 @@ mod tests {
         assert!(matches!(tmpl_err, TemplateError::MalformedTemplate(_)));
     }
 
-    #[tokio::test]
-    async fn test_fmtstring_formatting() {
+    #[test]
+    fn test_fmtstring_formatting() {
         let tmpl = Template::new("Hello, {name}!").unwrap();
         let variables = &vars!(name = "John");
         let formatted = tmpl.format(variables).unwrap();
@@ -421,8 +236,8 @@ mod tests {
         assert!(matches!(result, TemplateError::MissingVariable(_)));
     }
 
-    #[tokio::test]
-    async fn test_format_mustache_success() {
+    #[test]
+    fn test_format_mustache_success() {
         let tmpl = Template::new("Hello, {{name}}!").unwrap();
         let variables = &vars!(name = "John");
         let result = tmpl.format(variables).unwrap();
@@ -444,16 +259,16 @@ mod tests {
         assert_eq!(result, "Hello, John! Hello, again!");
     }
 
-    #[tokio::test]
-    async fn test_format_mustache_error() {
+    #[test]
+    fn test_format_mustache_error() {
         let tmpl_missing_var = Template::new("Hello, {{name}}!").unwrap();
         let variables = &vars!(adjective = "cool");
         let err = tmpl_missing_var.format(variables).unwrap_err();
         assert!(matches!(err, TemplateError::MissingVariable(_)));
     }
 
-    #[tokio::test]
-    async fn test_format_plaintext() {
+    #[test]
+    fn test_format_plaintext() {
         let tmpl = Template::new("Hello, world!").unwrap();
         let variables = &vars!();
         let result = tmpl.format(variables).unwrap();
@@ -479,8 +294,8 @@ mod tests {
         assert_eq!(result, "Text with\nmultiple lines\n");
     }
 
-    #[tokio::test]
-    async fn test_partial_adds_variables() {
+    #[test]
+    fn test_partial_adds_variables() {
         let mut template = Template::new("Hello, {name}").unwrap();
 
         template.partial("name", "Jill");
@@ -497,8 +312,8 @@ mod tests {
         assert_eq!(formatted, "Hello, Alice");
     }
 
-    #[tokio::test]
-    async fn test_multiple_partials() {
+    #[test]
+    fn test_multiple_partials() {
         let mut template = Template::new("Hello, {name}. You are feeling {mood}.").unwrap();
 
         template.partial("name", "Jill").partial("mood", "happy");
@@ -516,8 +331,8 @@ mod tests {
         assert_eq!(formatted, "Hello, Jill. You are feeling excited.");
     }
 
-    #[tokio::test]
-    async fn test_clear_partials() {
+    #[test]
+    fn test_clear_partials() {
         let mut template = Template::new("Hello, {name}.").unwrap();
 
         template.partial("name", "Jill").clear_partials();
@@ -534,8 +349,8 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[tokio::test]
-    async fn test_partial_vars() {
+    #[test]
+    fn test_partial_vars() {
         let mut template = Template::new("Hello, {name}!").unwrap();
         template.partial("name", "Alice");
 
@@ -562,8 +377,8 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[tokio::test]
-    async fn test_format_with_partials_and_runtime_vars() {
+    #[test]
+    fn test_format_with_partials_and_runtime_vars() {
         let mut template = Template::new("Hello, {name}. You are feeling {mood}.").unwrap();
 
         template.partial("name", "Alice").partial("mood", "calm");
@@ -585,8 +400,8 @@ mod tests {
         assert_eq!(formatted, "Hello, Charlie. You are feeling joyful.");
     }
 
-    #[tokio::test]
-    async fn test_format_with_missing_variables_in_partials() {
+    #[test]
+    fn test_format_with_missing_variables_in_partials() {
         let mut template = Template::new("Hello, {name}. You are feeling {mood}.").unwrap();
 
         template.partial("name", "Alice");
@@ -600,8 +415,8 @@ mod tests {
         assert_eq!(formatted, "Hello, Alice. You are feeling happy.");
     }
 
-    #[tokio::test]
-    async fn test_format_with_conflicting_partial_and_runtime_vars() {
+    #[test]
+    fn test_format_with_conflicting_partial_and_runtime_vars() {
         let mut template = Template::new("Hello, {name}. You are feeling {mood}.").unwrap();
 
         template.partial("name", "Alice").partial("mood", "calm");
