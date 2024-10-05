@@ -57,6 +57,27 @@ impl ChatTemplate {
         self.format_messages(variables)
     }
 
+    fn deserialize_placeholder_messages(
+        messages_str: &str,
+        n_messages: usize,
+    ) -> Result<Vec<Arc<MessageEnum>>, TemplateError> {
+        let deserialized_messages: Vec<MessageEnum> =
+            serde_json::from_str(messages_str).map_err(|e| {
+                TemplateError::MalformedTemplate(format!(
+                    "Failed to deserialize placeholder: {}",
+                    e
+                ))
+            })?;
+
+        let limited_messages = if n_messages > 0 {
+            deserialized_messages.into_iter().take(n_messages).collect()
+        } else {
+            deserialized_messages
+        };
+
+        Ok(limited_messages.into_iter().map(Arc::new).collect())
+    }
+
     pub fn format_messages(
         &self,
         variables: &HashMap<&str, &str>,
@@ -86,24 +107,10 @@ impl ChatTemplate {
                                 )
                             })?;
 
-                        let deserialized_messages: Vec<MessageEnum> =
-                            serde_json::from_str(messages_str).map_err(|e| {
-                                TemplateError::MalformedTemplate(format!(
-                                    "Failed to deserialize placeholder: {}",
-                                    e
-                                ))
-                            })?;
-
-                        let limited_messages = if placeholder.n_messages() > 0 {
-                            deserialized_messages
-                                .into_iter()
-                                .take(placeholder.n_messages())
-                                .collect()
-                        } else {
-                            deserialized_messages
-                        };
-
-                        limited_messages.into_iter().map(Arc::new).collect()
+                        Self::deserialize_placeholder_messages(
+                            messages_str,
+                            placeholder.n_messages(),
+                        )?
                     }
                 }
 
