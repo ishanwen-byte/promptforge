@@ -96,7 +96,7 @@ impl fmt::Display for FewShotChatTemplate {
 
 #[cfg(test)]
 mod tests {
-    use messageforge::BaseMessage;
+    use messageforge::{BaseMessage, MessageEnum};
 
     use super::*;
     use crate::{
@@ -362,5 +362,25 @@ ai: 5
 ";
 
         assert_eq!(formatted_output, expected_output);
+    }
+
+    #[test]
+    fn test_parse_few_shot_examples() {
+        let input = "Human: What is 2+2?\nAi: 4";
+        let message_enums = MessageEnum::parse_messages(input).unwrap();
+
+        assert_eq!(message_enums.len(), 2);
+
+        if let MessageEnum::Human(human_message) = &message_enums[0] {
+            assert_eq!(human_message.content(), "What is 2+2?");
+        } else {
+            panic!("Expected a Human message as the first message");
+        }
+
+        if let MessageEnum::Ai(ai_message) = &message_enums[1] {
+            assert_eq!(ai_message.content(), "4");
+        } else {
+            panic!("Expected an Ai message as the second message");
+        }
     }
 }

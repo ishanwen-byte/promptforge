@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Add, sync::Arc};
 
-use messageforge::{BaseMessage, MessageEnum, MessageType, SystemMessage};
+use messageforge::{BaseMessage, MessageEnum, MessageType};
 
 use crate::{
     extract_variables,
@@ -116,8 +116,15 @@ impl ChatTemplate {
 
                 MessageLike::FewShotPrompt(few_shot_template) => {
                     let formatted_examples = few_shot_template.format_examples()?;
-                    let message = MessageEnum::System(SystemMessage::new(&formatted_examples));
-                    vec![Arc::new(message)]
+                    let messages =
+                        MessageEnum::parse_messages(&formatted_examples).map_err(|e| {
+                            TemplateError::MalformedTemplate(format!(
+                                "Failed to parse message: {}",
+                                e
+                            ))
+                        })?;
+
+                    messages.into_iter().map(Arc::new).collect()
                 }
             };
 
@@ -159,22 +166,13 @@ impl Formattable for ChatTemplate {
         let combined_result = formatted_messages
             .iter()
             .map(|message| {
-                let content = message.content();
-                if content.starts_with("human:")
-                    || content.starts_with("ai:")
-                    || content.starts_with("system:")
-                {
-                    content.to_string()
-                } else {
-                    let role_prefix = match message.message_type() {
-                        MessageType::Human => "human: ",
-                        MessageType::Ai => "ai: ",
-                        MessageType::System => "system: ",
-                        _ => "",
-                    };
-
-                    format!("{}{}", role_prefix, content)
-                }
+                let role_prefix = match message.message_type() {
+                    MessageType::Human => "human: ",
+                    MessageType::Ai => "ai: ",
+                    MessageType::System => "system: ",
+                    _ => "",
+                };
+                format!("{}{}", role_prefix, message.content())
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -805,11 +803,8 @@ human: Thanks, AI.";
 system: You are a helpful AI Assistant.
 human: What is 2+2?
 ai: 4
-
 human: What is 2+3?
 ai: 5
-
-
 human: What is 4+4?";
 
         assert_eq!(formatted_output, expected_output);
