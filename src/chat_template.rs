@@ -1,4 +1,3 @@
-use futures::future::join_all;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Add, sync::Arc};
 
@@ -56,78 +55,70 @@ impl ChatTemplate {
         &self,
         variables: &HashMap<&str, &str>,
     ) -> Result<Vec<Arc<MessageEnum>>, TemplateError> {
-        self.format_messages(variables).await
+        self.format_messages(variables)
     }
 
-    pub async fn format_messages(
+    pub fn format_messages(
         &self,
         variables: &HashMap<&str, &str>,
     ) -> Result<Vec<Arc<MessageEnum>>, TemplateError> {
-        let futures: Vec<_> = self
-            .messages
-            .iter()
-            .map(|message_like| async move {
-                match message_like {
-                    MessageLike::BaseMessage(base_message) => Ok(vec![base_message.clone()]),
+        let mut results = Vec::new();
 
-                    MessageLike::RolePromptTemplate(role, template) => {
-                        let formatted_message = template.format(&variables.clone())?;
+        for message_like in &self.messages {
+            let messages = match message_like {
+                MessageLike::BaseMessage(base_message) => vec![base_message.clone()],
 
-                        let base_message = role
-                            .to_message(&formatted_message)
-                            .map_err(|_| TemplateError::InvalidRoleError)?;
+                MessageLike::RolePromptTemplate(role, template) => {
+                    let formatted_message = template.format(variables)?;
+                    let base_message = role
+                        .to_message(&formatted_message)
+                        .map_err(|_| TemplateError::InvalidRoleError)?;
+                    vec![base_message]
+                }
 
-                        Ok(vec![base_message])
-                    }
+                MessageLike::Placeholder(placeholder) => {
+                    if placeholder.optional() {
+                        vec![]
+                    } else {
+                        let messages_str =
+                            variables.get(placeholder.variable_name()).ok_or_else(|| {
+                                TemplateError::MissingVariable(
+                                    placeholder.variable_name().to_string(),
+                                )
+                            })?;
 
-                    MessageLike::Placeholder(placeholder) => {
-                        if placeholder.optional() {
-                            Ok(vec![])
+                        let deserialized_messages: Vec<MessageEnum> =
+                            serde_json::from_str(messages_str).map_err(|e| {
+                                TemplateError::MalformedTemplate(format!(
+                                    "Failed to deserialize placeholder: {}",
+                                    e
+                                ))
+                            })?;
+
+                        let limited_messages = if placeholder.n_messages() > 0 {
+                            deserialized_messages
+                                .into_iter()
+                                .take(placeholder.n_messages())
+                                .collect()
                         } else {
-                            let messages =
-                                variables.get(placeholder.variable_name()).ok_or_else(|| {
-                                    TemplateError::MissingVariable(
-                                        placeholder.variable_name().to_string(),
-                                    )
-                                })?;
+                            deserialized_messages
+                        };
 
-                            let deserialized_messages: Vec<MessageEnum> =
-                                serde_json::from_str(messages).map_err(|e| {
-                                    TemplateError::MalformedTemplate(format!(
-                                        "Failed to deserialize placeholder: {}",
-                                        e
-                                    ))
-                                })?;
-
-                            let limited_messages = if placeholder.n_messages() > 0 {
-                                deserialized_messages
-                                    .into_iter()
-                                    .take(placeholder.n_messages())
-                                    .collect()
-                            } else {
-                                deserialized_messages
-                            };
-
-                            Ok(limited_messages.into_iter().map(Arc::new).collect())
-                        }
-                    }
-
-                    MessageLike::FewShotPrompt(few_shot_template) => {
-                        let formatted_examples = few_shot_template.format_examples()?;
-                        let message = MessageEnum::System(SystemMessage::new(&formatted_examples));
-
-                        Ok(vec![Arc::new(message)])
+                        limited_messages.into_iter().map(Arc::new).collect()
                     }
                 }
-            })
-            .collect();
 
-        let results = join_all(futures).await;
+                MessageLike::FewShotPrompt(few_shot_template) => {
+                    let formatted_examples = few_shot_template.format_examples()?;
+                    let message = MessageEnum::System(SystemMessage::new(&formatted_examples));
+                    vec![Arc::new(message)]
+                }
+            };
 
-        results
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()
-            .map(|vecs| vecs.into_iter().flatten().collect())
+            results.extend(messages);
+        }
+
+        Ok(results)
     }
 
     pub fn to_variables_map(&self) -> HashMap<&str, &str> {
@@ -157,7 +148,7 @@ impl ChatTemplate {
 
 impl Formattable for ChatTemplate {
     fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
-        let formatted_messages = futures::executor::block_on(self.format_messages(variables))?;
+        let formatted_messages = self.format_messages(variables)?;
 
         let combined_result = formatted_messages
             .iter()
@@ -167,7 +158,7 @@ impl Formattable for ChatTemplate {
                     || content.starts_with("ai:")
                     || content.starts_with("system:")
                 {
-                    message.content().to_string()
+                    content.to_string()
                 } else {
                     let role_prefix = match message.message_type() {
                         MessageType::Human => "human: ",
@@ -176,7 +167,7 @@ impl Formattable for ChatTemplate {
                         _ => "",
                     };
 
-                    format!("{}{}", role_prefix, message.content())
+                    format!("{}{}", role_prefix, content)
                 }
             })
             .collect::<Vec<_>>()
