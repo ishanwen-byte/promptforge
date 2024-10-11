@@ -1,0 +1,21 @@
+example_separator = "\n---\n"
+
+[prefix]
+template = "This is the prefix. Topic: {topic}"
+template_format = "FmtString"
+input_variables = ["topic"]
+
+[suffix]
+template = "This is the suffix. Remember to think about {topic}."
+template_format = "FmtString"
+input_variables = ["topic"]
+
+[[examples]]
+template = "Q: {question1}\nA: {answer1}"
+template_format = "FmtString"
+input_variables = ["question1", "answer1"]
+
+[[examples]]
+template = "Q: {question2}\nA: {answer2}"
+template_format = "FmtString"
+input_variables = ["question2", "answer2"]

@@ -1,8 +1,11 @@
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use tokio::fs;
 
 use crate::template_format::TemplateError;
 use crate::{Formattable, Templatable, Template};
 use std::collections::HashMap;
+use std::path::Path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FewShotTemplate<T: Templatable + Formattable> {
@@ -16,7 +19,7 @@ pub struct FewShotTemplate<T: Templatable + Formattable> {
 
 impl<T> Default for FewShotTemplate<T>
 where
-    T: Templatable + Formattable,
+    T: Templatable + Formattable + DeserializeOwned + TryFrom<String, Error = TemplateError>,
 {
     fn default() -> Self {
         Self {
@@ -30,7 +33,7 @@ where
 
 impl<T> FewShotTemplate<T>
 where
-    T: Templatable + Formattable,
+    T: Templatable + Formattable + DeserializeOwned + TryFrom<String, Error = TemplateError>,
 {
     pub const DEFAULT_EXAMPLE_SEPARATOR: &'static str = "\n\n";
 
@@ -73,6 +76,14 @@ where
 
     pub fn suffix(&self) -> Option<&T> {
         self.suffix.as_ref()
+    }
+
+    pub async fn from_toml_file<P: AsRef<Path>>(path: P) -> Result<Self, TemplateError> {
+        let toml_content = fs::read_to_string(path).await.map_err(|e| {
+            TemplateError::TomlDeserializationError(format!("Failed to read TOML file: {}", e))
+        })?;
+
+        FewShotTemplate::try_from(toml_content)
     }
 }
 
@@ -130,7 +141,7 @@ where
 
 impl<T> Default for FewShotTemplateBuilder<T>
 where
-    T: Templatable + Formattable,
+    T: Templatable + Formattable + DeserializeOwned + TryFrom<String, Error = TemplateError>,
 {
     fn default() -> Self {
         Self {
@@ -144,7 +155,7 @@ where
 
 impl<T> FewShotTemplateBuilder<T>
 where
-    T: Templatable + Formattable,
+    T: Templatable + Formattable + DeserializeOwned + TryFrom<String, Error = TemplateError>,
 {
     pub fn new() -> Self {
         Self::default()
@@ -188,12 +199,19 @@ where
     }
 }
 
-impl TryFrom<String> for FewShotTemplate<Template> {
+impl<T> TryFrom<String> for FewShotTemplate<T>
+where
+    T: Templatable + Formattable + DeserializeOwned,
+{
     type Error = TemplateError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        serde_json::from_str(&value)
-            .map_err(|msg| TemplateError::MalformedTemplate(format!("{}", msg)))
+        if value.trim().starts_with('{') {
+            serde_json::from_str(&value)
+                .map_err(|msg| TemplateError::MalformedTemplate(msg.to_string()))
+        } else {
+            toml::from_str(&value).map_err(|msg| TemplateError::MalformedTemplate(msg.to_string()))
+        }
     }
 }
 

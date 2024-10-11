@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use toml::de::Error as TomlError;
 
 use handlebars::RenderError;
 use serde::{Deserialize, Serialize};
@@ -18,6 +19,7 @@ pub enum TemplateError {
     MissingVariable(String),
     RuntimeError(RenderError),
     InvalidRoleError,
+    TomlDeserializationError(String),
 }
 
 impl From<InvalidRoleError> for TemplateError {
@@ -32,6 +34,12 @@ impl From<RenderError> for TemplateError {
     }
 }
 
+impl From<TomlError> for TemplateError {
+    fn from(err: TomlError) -> Self {
+        TemplateError::TomlDeserializationError(err.to_string())
+    }
+}
+
 impl std::fmt::Display for TemplateError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -40,6 +48,9 @@ impl std::fmt::Display for TemplateError {
             TemplateError::MissingVariable(msg) => write!(f, "Missing variable: {}", msg),
             TemplateError::RuntimeError(err) => write!(f, "Render error: {}", err),
             TemplateError::InvalidRoleError => write!(f, "Invalid role error"),
+            TemplateError::TomlDeserializationError(msg) => {
+                write!(f, "TOML deserialization error: {}", msg)
+            }
         }
     }
 }
@@ -54,6 +65,10 @@ impl TemplateError {
             (TemplateError::UnsupportedFormat(a), TemplateError::UnsupportedFormat(b)) => a == b,
             (TemplateError::RuntimeError(_), TemplateError::RuntimeError(_)) => true,
             (TemplateError::InvalidRoleError, TemplateError::InvalidRoleError) => true,
+            (
+                TemplateError::TomlDeserializationError(a),
+                TemplateError::TomlDeserializationError(b),
+            ) => a == b,
             _ => false,
         }
     }
@@ -294,13 +309,13 @@ mod tests {
         partials.insert("day".to_string(), "Sunday".to_string());
 
         let mut runtime_vars = HashMap::new();
-        runtime_vars.insert("day", "Monday"); // Should overwrite partial
+        runtime_vars.insert("day", "Monday");
         runtime_vars.insert("time", "Morning");
 
         let merged = merge_vars(&partials, &runtime_vars);
 
         assert_eq!(merged.get("name"), Some(&"Alice"));
-        assert_eq!(merged.get("day"), Some(&"Monday")); // Overwritten by runtime var
+        assert_eq!(merged.get("day"), Some(&"Monday"));
         assert_eq!(merged.get("time"), Some(&"Morning"));
         assert_eq!(merged.len(), 3);
     }
@@ -311,7 +326,7 @@ mod tests {
         partials.insert("name".to_string(), "Alice".to_string());
         partials.insert("day".to_string(), "Sunday".to_string());
 
-        let runtime_vars = HashMap::new(); // Empty runtime vars
+        let runtime_vars = HashMap::new();
 
         let merged = merge_vars(&partials, &runtime_vars);
 
@@ -322,7 +337,7 @@ mod tests {
 
     #[test]
     fn test_merge_vars_only_runtime_vars() {
-        let partials = HashMap::new(); // Empty partials
+        let partials = HashMap::new();
 
         let mut runtime_vars = HashMap::new();
         runtime_vars.insert("day", "Monday");
@@ -337,8 +352,8 @@ mod tests {
 
     #[test]
     fn test_merge_vars_both_empty() {
-        let partials = HashMap::new(); // Empty partials
-        let runtime_vars = HashMap::new(); // Empty runtime vars
+        let partials = HashMap::new();
+        let runtime_vars = HashMap::new();
 
         let merged = merge_vars(&partials, &runtime_vars);
 
@@ -351,11 +366,11 @@ mod tests {
         partials.insert("var".to_string(), "PartialValue".to_string());
 
         let mut runtime_vars = HashMap::new();
-        runtime_vars.insert("var", "RuntimeValue"); // Should overwrite partial
+        runtime_vars.insert("var", "RuntimeValue");
 
         let merged = merge_vars(&partials, &runtime_vars);
 
-        assert_eq!(merged.get("var"), Some(&"RuntimeValue")); // Overwritten
+        assert_eq!(merged.get("var"), Some(&"RuntimeValue"));
         assert_eq!(merged.len(), 1);
     }
 
@@ -377,18 +392,18 @@ mod tests {
     #[test]
     fn test_merge_vars_handles_empty_strings() {
         let mut partials = HashMap::new();
-        partials.insert("name".to_string(), "".to_string()); // Empty partial value
+        partials.insert("name".to_string(), "".to_string());
         partials.insert("day".to_string(), "Sunday".to_string());
 
         let mut runtime_vars = HashMap::new();
-        runtime_vars.insert("name", "Bob"); // Should overwrite empty partial
+        runtime_vars.insert("name", "Bob");
         runtime_vars.insert("time", "Morning");
 
         let merged = merge_vars(&partials, &runtime_vars);
 
-        assert_eq!(merged.get("name"), Some(&"Bob")); // Overwritten
-        assert_eq!(merged.get("day"), Some(&"Sunday")); // From partials
-        assert_eq!(merged.get("time"), Some(&"Morning")); // From runtime vars
+        assert_eq!(merged.get("name"), Some(&"Bob"));
+        assert_eq!(merged.get("day"), Some(&"Sunday"));
+        assert_eq!(merged.get("time"), Some(&"Morning"));
         assert_eq!(merged.len(), 3);
     }
 
@@ -399,12 +414,12 @@ mod tests {
         partials.insert("day".to_string(), "Sunday".to_string());
 
         let mut runtime_vars = HashMap::new();
-        runtime_vars.insert("name", ""); // Empty string in runtime vars
+        runtime_vars.insert("name", "");
 
         let merged = merge_vars(&partials, &runtime_vars);
 
-        assert_eq!(merged.get("name"), Some(&"")); // Overwritten by empty runtime var
-        assert_eq!(merged.get("day"), Some(&"Sunday")); // From partials
+        assert_eq!(merged.get("name"), Some(&""));
+        assert_eq!(merged.get("day"), Some(&"Sunday"));
         assert_eq!(merged.len(), 2);
     }
 }
