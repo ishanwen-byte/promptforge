@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, ops::Add, sync::Arc};
+use std::{collections::HashMap, ops::Add, path::Path, sync::Arc};
+use tokio::fs;
 
 use messageforge::{BaseMessage, MessageEnum, MessageType};
 
@@ -157,6 +158,14 @@ impl ChatTemplate {
         }
         variables
     }
+
+    pub async fn from_toml_file<P: AsRef<Path>>(path: P) -> Result<Self, TemplateError> {
+        let toml_content = fs::read_to_string(path).await.map_err(|e| {
+            TemplateError::TomlDeserializationError(format!("Failed to read TOML file: {}", e))
+        })?;
+
+        ChatTemplate::try_from(toml_content)
+    }
 }
 
 impl Formattable for ChatTemplate {
@@ -193,9 +202,15 @@ impl TryFrom<String> for ChatTemplate {
     type Error = TemplateError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        serde_json::from_str(&value).map_err(|msg| {
-            TemplateError::MalformedTemplate(format!("Failed to parse JSON: {}", msg))
-        })
+        if value.trim().starts_with('{') {
+            serde_json::from_str(&value).map_err(|err| {
+                TemplateError::MalformedTemplate(format!("Failed to parse JSON: {}", err))
+            })
+        } else {
+            toml::from_str(&value).map_err(|err| {
+                TemplateError::MalformedTemplate(format!("Failed to parse TOML: {}", err))
+            })
+        }
     }
 }
 
@@ -808,5 +823,78 @@ ai: 5
 human: What is 4+4?";
 
         assert_eq!(formatted_output, expected_output);
+    }
+
+    #[test]
+    fn test_chat_template_try_from_valid_json() {
+        let json_data = r#"
+    {
+        "messages": [
+            { "type": "BaseMessage", "value": { "role": "human", "content": "Hello, AI!" } },
+            { "type": "BaseMessage", "value": { "role": "ai", "content": "Hello, human!" } }
+        ]
+    }"#;
+
+        let result = ChatTemplate::try_from(json_data.to_string());
+        assert!(result.is_ok());
+        let chat_template = result.unwrap();
+        assert_eq!(chat_template.messages.len(), 2);
+    }
+
+    #[test]
+    fn test_chat_template_try_from_valid_toml() {
+        let toml_data = r#"
+        [[messages]]
+        type = "BaseMessage"
+        [messages.value]
+        role = "human"
+        content = "Hello, AI!"
+
+        [[messages]]
+        type = "BaseMessage"
+        [messages.value]
+        role = "ai"
+        content = "Hello, human!"
+    "#;
+
+        let result = ChatTemplate::try_from(toml_data.to_string());
+        assert!(result.is_ok());
+        let chat_template = result.unwrap();
+        assert_eq!(chat_template.messages.len(), 2);
+    }
+
+    #[test]
+    fn test_chat_template_try_from_invalid_json() {
+        let invalid_json = r#"
+        {
+            "messages": [
+                { "role": "human", "content": "Hello, AI!" }
+            } // Missing closing brace and syntax error
+    "#;
+
+        let result = ChatTemplate::try_from(invalid_json.to_string());
+        assert!(result.is_err());
+        if let Err(TemplateError::MalformedTemplate(error_msg)) = result {
+            assert!(error_msg.contains("Failed to parse JSON"));
+        } else {
+            panic!("Expected TemplateError::MalformedTemplate");
+        }
+    }
+
+    #[test]
+    fn test_chat_template_try_from_invalid_toml() {
+        let invalid_toml = r#"
+        [[messages]]
+        type = "BaseMessage"
+        role = "human" # Incorrect TOML structure, missing nested [messages.value] table
+    "#;
+
+        let result = ChatTemplate::try_from(invalid_toml.to_string());
+        assert!(result.is_err());
+        if let Err(TemplateError::MalformedTemplate(error_msg)) = result {
+            assert!(error_msg.contains("Failed to parse TOML"));
+        } else {
+            panic!("Expected TemplateError::MalformedTemplate");
+        }
     }
 }

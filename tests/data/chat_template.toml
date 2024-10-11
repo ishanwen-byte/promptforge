@@ -1,0 +1,17 @@
+[[messages]]
+type = "BaseMessage"
+[messages.value]
+role = "system"
+content = "System initialized."
+
+[[messages]]
+type = "BaseMessage"
+[messages.value]
+role = "human"
+content = "Hello, AI!"
+
+[[messages]]
+type = "BaseMessage"
+[messages.value]
+role = "ai"
+content = "Hello, human! How can I assist you today?"
