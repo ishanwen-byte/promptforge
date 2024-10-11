@@ -207,10 +207,13 @@ where
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         if value.trim().starts_with('{') {
-            serde_json::from_str(&value)
-                .map_err(|msg| TemplateError::MalformedTemplate(msg.to_string()))
+            serde_json::from_str(&value).map_err(|e| {
+                TemplateError::MalformedTemplate(format!("JSON deserialization error: {}", e))
+            })
         } else {
-            toml::from_str(&value).map_err(|msg| TemplateError::MalformedTemplate(msg.to_string()))
+            toml::from_str(&value).map_err(|e| {
+                TemplateError::MalformedTemplate(format!("TOML deserialization error: {}", e))
+            })
         }
     }
 }
