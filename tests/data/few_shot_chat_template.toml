@@ -1,0 +1,33 @@
+example_separator = "\n---\n"
+
+[prefix]
+template = "This is the prefix."
+template_format = "PlainText"
+input_variables = []
+
+[suffix]
+template = "This is the suffix."
+template_format = "PlainText"
+input_variables = []
+
+[[examples]]
+template = "{question}: What is 5 + 5?\\n{answer}: 10"
+template_format = "FmtString"
+input_variables = ["question", "answer"]
+
+[[examples]]
+template = "{question}: What is 6 + 6?\\n{answer}: 12"
+template_format = "FmtString"
+input_variables = ["question", "answer"]
+
+[[messages]]
+type = "BaseMessage"
+[messages.value]
+role = "human"
+content = "{question}"
+
+[[messages]]
+type = "BaseMessage"
+[messages.value]
+role = "ai"
+content = "{answer}"

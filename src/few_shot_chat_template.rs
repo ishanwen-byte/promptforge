@@ -1,8 +1,11 @@
-use std::{collections::HashMap, fmt, sync::Arc};
+use std::{collections::HashMap, fmt, path::Path, sync::Arc};
 
 use serde::{Deserialize, Serialize};
+use tokio::fs;
 
-use crate::{ChatTemplate, FewShotTemplate, Formattable, Template, TemplateError};
+use crate::{
+    ChatTemplate, FewShotChatTemplateConfig, FewShotTemplate, Formattable, Template, TemplateError,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FewShotChatTemplate {
@@ -42,29 +45,13 @@ impl FewShotChatTemplate {
     pub fn suffix(&self) -> Option<&Template> {
         self.examples.suffix()
     }
-}
 
-impl Formattable for FewShotChatTemplate {
-    fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
-        let examples = self.examples.format(variables)?;
-        if examples.is_empty() {
-            Ok(String::new())
-        } else {
-            let formatted_examples = format!("{}\n\n", examples);
-            Ok(formatted_examples)
-        }
-    }
-}
-
-impl TryFrom<String> for FewShotChatTemplate {
-    type Error = TemplateError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        if let Ok(template) = serde_json::from_str::<FewShotChatTemplate>(&value) {
+    fn try_from_json(value: &str) -> Result<Self, TemplateError> {
+        if let Ok(template) = serde_json::from_str::<FewShotChatTemplate>(value) {
             return Ok(template);
         }
 
-        let deserialized: HashMap<String, String> = serde_json::from_str(&value).map_err(|e| {
+        let deserialized: HashMap<String, String> = serde_json::from_str(value).map_err(|e| {
             TemplateError::MalformedTemplate(format!("Failed to parse JSON: {}", e))
         })?;
 
@@ -85,12 +72,107 @@ impl TryFrom<String> for FewShotChatTemplate {
 
         Ok(FewShotChatTemplate::new(examples, example_prompt))
     }
+
+    fn try_from_toml(value: &str) -> Result<Self, TemplateError> {
+        let toml_parsed: HashMap<String, String> = toml::from_str(value).map_err(|e| {
+            TemplateError::MalformedTemplate(format!("Failed to parse TOML: {}", e))
+        })?;
+
+        let examples_str = toml_parsed.get("examples").ok_or_else(|| {
+            TemplateError::MalformedTemplate("Missing 'examples' field in TOML".to_string())
+        })?;
+        let examples = FewShotTemplate::try_from(examples_str.clone())?;
+
+        let example_prompt_str = toml_parsed.get("example_prompt").ok_or_else(|| {
+            TemplateError::MalformedTemplate("Missing 'example_prompt' field in TOML".to_string())
+        })?;
+        let example_prompt = ChatTemplate::try_from(example_prompt_str.clone())?;
+
+        Ok(FewShotChatTemplate::new(examples, example_prompt))
+    }
+
+    pub async fn from_toml_file<P: AsRef<Path>>(path: P) -> Result<Self, TemplateError> {
+        let toml_content = fs::read_to_string(path).await.map_err(|e| {
+            TemplateError::TomlDeserializationError(format!("Failed to read TOML file: {}", e))
+        })?;
+
+        let config: FewShotChatTemplateConfig = toml::from_str(&toml_content).map_err(|e| {
+            TemplateError::MalformedTemplate(format!("Failed to parse TOML: {}", e))
+        })?;
+
+        FewShotChatTemplate::try_from(config)
+    }
+}
+
+impl Formattable for FewShotChatTemplate {
+    fn format(&self, variables: &HashMap<&str, &str>) -> Result<String, TemplateError> {
+        let examples = self.examples.format(variables)?;
+        if examples.is_empty() {
+            Ok(String::new())
+        } else {
+            let formatted_examples = format!("{}\n\n", examples);
+            Ok(formatted_examples)
+        }
+    }
 }
 
 impl fmt::Display for FewShotChatTemplate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let json_rep = serde_json::to_string(&self).map_err(|_| fmt::Error)?;
         write!(f, "{}", json_rep)
+    }
+}
+
+impl TryFrom<String> for FewShotChatTemplate {
+    type Error = TemplateError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if value.trim().starts_with('{') {
+            Self::try_from_json(&value)
+        } else {
+            Self::try_from_toml(&value)
+        }
+    }
+}
+
+impl TryFrom<FewShotChatTemplateConfig> for FewShotChatTemplate {
+    type Error = TemplateError;
+
+    fn try_from(config: FewShotChatTemplateConfig) -> Result<Self, Self::Error> {
+        let prefix = Some(config.prefix.try_into().map_err(|_| {
+            TemplateError::MalformedTemplate(
+                "Failed to parse 'prefix' in FewShotChatTemplateConfig.".to_string(),
+            )
+        })?);
+
+        let suffix = Some(config.suffix.try_into().map_err(|_| {
+            TemplateError::MalformedTemplate(
+                "Failed to parse 'suffix' in FewShotChatTemplateConfig.".to_string(),
+            )
+        })?);
+
+        let examples = config
+            .examples
+            .into_iter()
+            .map(|example| {
+                example.try_into().map_err(|_| {
+                    TemplateError::MalformedTemplate(
+                        "Failed to parse an example in FewShotChatTemplateConfig.".to_string(),
+                    )
+                })
+            })
+            .collect::<Result<Vec<Template>, Self::Error>>()?;
+
+        let few_shot_template =
+            FewShotTemplate::with_options(examples, prefix, suffix, config.example_separator);
+
+        let example_prompt = ChatTemplate::try_from(config.messages).map_err(|_| {
+            TemplateError::MalformedTemplate(
+                "Failed to parse 'messages' in FewShotChatTemplateConfig.".to_string(),
+            )
+        })?;
+
+        Ok(FewShotChatTemplate::new(few_shot_template, example_prompt))
     }
 }
 

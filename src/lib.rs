@@ -43,3 +43,6 @@ pub mod few_shot_chat_template;
 pub use few_shot_chat_template::FewShotChatTemplate;
 
 pub mod examples;
+
+pub mod few_shot_chat_template_config;
+pub use few_shot_chat_template_config::FewShotChatTemplateConfig;

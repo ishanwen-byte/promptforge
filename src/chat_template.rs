@@ -6,6 +6,7 @@ use messageforge::{BaseMessage, MessageEnum, MessageType};
 
 use crate::{
     extract_variables,
+    few_shot_chat_template_config::MessageConfig,
     message_like::{ArcMessageEnumExt, MessageLike},
     FewShotChatTemplate, Formattable, MessagesPlaceholder, Role, Templatable, Template,
     TemplateError, TemplateFormat,
@@ -211,6 +212,29 @@ impl TryFrom<String> for ChatTemplate {
                 TemplateError::MalformedTemplate(format!("Failed to parse TOML: {}", err))
             })
         }
+    }
+}
+
+impl TryFrom<Vec<MessageConfig>> for ChatTemplate {
+    type Error = TemplateError;
+
+    fn try_from(configs: Vec<MessageConfig>) -> Result<Self, Self::Error> {
+        let messages = configs
+            .into_iter()
+            .map(|config| {
+                let role = Role::try_from(config.value.role.as_str())
+                    .map_err(|_| TemplateError::InvalidRoleError)?;
+                let content = config.value.content;
+
+                Ok((role, content))
+            })
+            .collect::<Result<Vec<_>, Self::Error>>()?;
+
+        ChatTemplate::from_messages(messages).map_err(|_| {
+            TemplateError::MalformedTemplate(
+                "Failed to deserialize TOML into ChatTemplate messages.".to_string(),
+            )
+        })
     }
 }
 

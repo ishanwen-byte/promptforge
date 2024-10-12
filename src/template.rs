@@ -23,13 +23,27 @@ impl Template {
     pub const MUSTACHE_TEMPLATE: &'static str = "mustache_template";
 
     pub fn new(tmpl: &str) -> Result<Self, TemplateError> {
+        Self::new_with_config(tmpl, None, None)
+    }
+
+    pub fn new_with_config(
+        tmpl: &str,
+        template_format: Option<TemplateFormat>,
+        input_variables: Option<Vec<String>>,
+    ) -> Result<Self, TemplateError> {
         validate_template(tmpl)?;
 
-        let template_format = detect_template(tmpl)?;
-        let input_variables = extract_variables(tmpl)
-            .into_iter()
-            .map(|var| var.to_string())
-            .collect();
+        let template_format = template_format
+            .or_else(|| detect_template(tmpl).ok())
+            .ok_or_else(|| {
+                TemplateError::UnsupportedFormat("Unable to detect template format".into())
+            })?;
+        let input_variables = input_variables.unwrap_or_else(|| {
+            extract_variables(tmpl)
+                .into_iter()
+                .map(|var| var.to_string())
+                .collect()
+        });
 
         let handlebars = if template_format == TemplateFormat::Mustache {
             let handle = Self::initialize_handlebars(tmpl)?;

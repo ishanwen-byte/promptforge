@@ -81,26 +81,46 @@ pub enum TemplateFormat {
     Mustache,
 }
 
-impl TryFrom<&str> for TemplateFormat {
-    type Error = TemplateError;
-
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        if !is_valid_template(s) {
+impl TemplateFormat {
+    pub fn as_str(&self) -> &str {
+        match self {
+            TemplateFormat::FmtString => "FmtString",
+            TemplateFormat::Mustache => "Mustache",
+            TemplateFormat::PlainText => "PlainText",
+        }
+    }
+    pub fn from_template(template: &str) -> Result<Self, TemplateError> {
+        if !is_valid_template(template) {
             return Err(TemplateError::MalformedTemplate(
                 "Malformed template".to_string(),
             ));
         }
 
-        if is_fmtstring(s) {
+        if is_fmtstring(template) {
             Ok(TemplateFormat::FmtString)
-        } else if is_mustache(s) {
+        } else if is_mustache(template) {
             Ok(TemplateFormat::Mustache)
-        } else if is_plain_text(s) {
+        } else if is_plain_text(template) {
             Ok(TemplateFormat::PlainText)
         } else {
             Err(TemplateError::UnsupportedFormat(
                 "Unsupported template format".to_string(),
             ))
+        }
+    }
+}
+
+impl TryFrom<&str> for TemplateFormat {
+    type Error = TemplateError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        match s.to_lowercase().as_str() {
+            "fmtstring" => Ok(TemplateFormat::FmtString),
+            "mustache" => Ok(TemplateFormat::Mustache),
+            "plaintext" => Ok(TemplateFormat::PlainText),
+            _ => Err(TemplateError::UnsupportedFormat(
+                "Unsupported template format".to_string(),
+            )),
         }
     }
 }
@@ -269,23 +289,23 @@ mod tests {
     }
 
     #[test]
-    fn test_try_from_template_format() {
+    fn test_from_template_format() {
         assert_eq!(
-            TemplateFormat::try_from("{name}").unwrap(),
+            TemplateFormat::from_template("{name}").unwrap(),
             TemplateFormat::FmtString
         );
 
         assert_eq!(
-            TemplateFormat::try_from("{{name}}").unwrap(),
+            TemplateFormat::from_template("{{name}}").unwrap(),
             TemplateFormat::Mustache
         );
 
         assert_eq!(
-            TemplateFormat::try_from("Hello, world!").unwrap(),
+            TemplateFormat::from_template("Hello, world!").unwrap(),
             TemplateFormat::PlainText
         );
 
-        let result = TemplateFormat::try_from("{name {{other}}");
+        let result = TemplateFormat::from_template("{name {{other}}");
         match result {
             Err(TemplateError::MalformedTemplate(msg)) => {
                 assert_eq!(msg, "Malformed template".to_string());
@@ -293,7 +313,7 @@ mod tests {
             _ => panic!("Expected MalformedTemplate error"),
         }
 
-        let result = TemplateFormat::try_from("{ name age }");
+        let result = TemplateFormat::from_template("{ name age }");
         match result {
             Err(TemplateError::UnsupportedFormat(msg)) => {
                 assert_eq!(msg, "Unsupported template format".to_string());
