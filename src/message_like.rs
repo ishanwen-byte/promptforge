@@ -35,7 +35,7 @@ impl MessageLike {
         &self,
         extract_message: impl Fn(&MessageEnum) -> Option<&T>,
     ) -> Option<&T> {
-        if let MessageLike::BaseMessage(ref message_enum) = self {
+        if let MessageLike::BaseMessage(message_enum) = self {
             extract_message(message_enum)
         } else {
             None
